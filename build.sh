@@ -1,0 +1,1 @@
+cat ./js/rng.js ./js/polyfill.js ./js/DeepLearning/utility.js ./js/DeepLearning/trajectory.js ./js/DeepLearning/nnmath.js ./js/DeepLearning/tensor.js ./js/DeepLearning/nn.js ./js/DeepLearning/mann.js ./js/DeepLearning/manncontroller.js ./js/DeepLearning/charcontroller.js ./js/WebGLStudio/resource.js ./js/WebGLStudio/component.js > dist/mann.js
