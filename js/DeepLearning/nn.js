@@ -65,10 +65,7 @@
          */
         CreateTensor(ID, b, c)
         {
-            if( c.constructor.name == "Number" )
-            return CreateTensorWH(ID,b,c);
-            else
-            return CreateTensorM(ID,b);
+            return ( c.constructor.name == "Number" ) ? CreateTensorWH(ID,b,c) : CreateTensorM(ID,b);
         }
         
         /**
@@ -86,6 +83,7 @@
             }
             
             let T = new Tensor(rows, cols);
+           
             T.id = id;
             this._tensors[id] = T;
             return T;
@@ -153,10 +151,30 @@
          * @return {Tensor} OUT
          */
         Normalise(IN, mean, std, OUT) {
-            throw("Not Implemented");
+            //throw("Not Implemented");
             
             //Eigen.Normalise(IN.id, mean.id, std.id, OUT.id);
-            return OUT;
+
+            // JS implementation:
+            // OUT = (IN - mean) / std
+            let inM = IN.GetMatrix();
+            let meanM = mean.GetMatrix();
+            let stdM = std.GetMatrix();
+            let outM = OUT.GetMatrix();
+
+            for (let i = 0; i < inM.length; i++) 
+            for (let j = 0; j < inM[i].length; j++) // should be one column
+            {
+                let temp = inM[i][j] - meanM[i][j];
+                let stdv = stdM[i][j];
+                if (stdv !== 0)
+                    outM[i][j] = temp / stdv;
+                else
+                    outM[i][j] = temp;
+            }
+            
+
+            //return OUT;
         }
 
         /**
@@ -169,10 +187,22 @@
          * @return {Tensor} OUT
          */
         Renormalise(IN, mean, std, OUT) {
-            throw("Not Implemented");
+            //throw("Not Implemented");
             
             //Eigen.Renormalise(IN.id, mean.id, std.id, OUT.id);
-            return OUT;
+
+            // JS implementation:
+            // OUT = IN * std + mean
+            let inM = IN.GetMatrix();
+            let meanM = mean.GetMatrix();
+            let stdM = std.GetMatrix();
+            let outM = OUT.GetMatrix();
+
+            for (let i = 0; i < inM.length; i++)
+                for (let j = 0; j < inM[i].length; j++) // should be one column
+                    outM[i][j] = inM[i][j] * stdM[i][j] + meanM[i][j];
+                
+            //return OUT;
         }
 
         /**
@@ -184,9 +214,26 @@
          * @return {Tensor} OUT
          */
         Layer(IN, W, b, OUT) {
-            throw("Not Implemented");
+            //throw("Not Implemented");
 
             //Eigen.Layer(IN.id, W.id, b.id, OUT.id);
+
+            // JS implementation:
+            // OUT = W * IN + b
+
+            let inM =  IN.GetMatrix();
+            let wM =   W.GetMatrix();
+            let bM =   b.GetMatrix();
+            let outM = OUT.GetMatrix();
+
+            for (let i = 0; i < wM.length; i++) {
+                let wRow = wM[i];
+                let temp = 0;
+                for (let j = 0; j < inM.length; j++)
+                    temp += wRow[j] * inM[j][0]; // assuming one column in IN
+                outM[i][0] = temp + bM[i][0]; // assuming one column in OUT and b
+            }
+
             return OUT;
         }
 
@@ -199,9 +246,18 @@
          * @return {Tensor} T
          */
         Blend(T, W, w) {
-            throw("Not Implemented");
+            //throw("Not Implemented");
             
             //Eigen.Blend(T.id, W.id, w);
+
+            // JS Implementation:
+            // T += w * W
+            let outM = T.GetMatrix();
+            let wM = W.GetMatrix();
+            for (let i = 0; i < outM.length; i++)
+            for (let j = 0; j < outM[i].length; j++)
+                    outM[i][j] += wM[i][j] * w;            
+            
             return T;
         }
 
@@ -213,9 +269,20 @@
          * @return {Tensor} T
          */
         ELU(T) {
-            throw("Not Implemented");
+            //throw("Not Implemented");
             
             //return T.toTensor().elu();
+
+            // JS implementation:
+            // T = exp(val) - 1 if x < 0 else val
+            let m = T.GetMatrix();
+            console.assert(m.length === 0 || m[0].length === 1, "implemented for 1D only", window.DEBUG)
+            for (let i = 0; i < m.length; i++) {
+                    let val = m[i][0]; // should be one column
+                    if (val < 0)
+                        m[i][0] = exp(val) - 1; // in-place operation                
+            }
+            return T;
         }
 
         /**
@@ -249,9 +316,26 @@
          * @return {Tensor} T
          */
         SoftMax(T) {
-            throw("Not Implemented");
+            //throw("Not Implemented");
                     
             //Eigen.SoftMax(T.id);
+
+            // JS implementation:
+            // T = exp(T) / sum(exp(T))
+            let m = T.GetMatrix();
+            console.assert(m.length === 0 || m[0].length === 1, "implemented for 1D only", window.DEBUG)
+            let expT = [];
+            let sum = 0;
+            for (let i = 0; i < m.length; i++) {
+                let val = exp(m[i][0]); // should be one column
+                sum += val;
+                expT.push(val);                
+            }
+            if (sum !== 0) {
+                for (let i = 0; i < m.length; i++) {
+                    m[i][0] = expT[i] / sum; // in-place operation
+            }
+          
             return T;
         }
     }
