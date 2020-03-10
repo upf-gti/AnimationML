@@ -12,7 +12,7 @@
     * IntPTR
     * Eigen TODO: find an implementation
 */
-(function(window){
+(function(){
     
     "use strict";
 

@@ -22,7 +22,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.0/dist/tf.min.js"></script>
 
 */
-(function(window){
+(function(){
 
     "use strict";
 
@@ -253,58 +253,6 @@
         5:"QUATERNION"      ,
         6:"ANGLE_AXIS"      ,
         7:"ROTATION_VECTOR" ,
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-    class MANN
-    {
-        constructor(o)
-        {
-            this._tensors = {};
-        }
-
-        addTensor(name, tensor){
-            if(!this._tensors[name])
-                this._tensors[name] = tensor;
-            
-            else throw `tensor ${name} already exists`;
-
-            return tensor;
-        }
-
-        delTensor(name){
-            if(this._tensors[name])
-                delete this._tensors[name];
-        }
-
-        /**
-         * Read parametrs from json and create related tensors
-         * @param {string} path 
-         */
-        ReadParameters(params)
-        {
-            this._X = this.addTensor("X", tf.input({shape: [params.InputSize,  1]}));
-            this._Y = this.addTensor("Y", tf.input({shape: [params.OutputSize, 1]}));
-        }
     }
 
     window.MANN = MANN;

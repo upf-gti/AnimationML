@@ -32,9 +32,10 @@
 
 "use strict";
 
-(function(window){
+(function(){
 
     function RNG(seed) {
+        if(!this) throw("RNG hasn't been called with `new` before");
         // LCG using GCC's constants
         this.m = 0x80000000; // 2**31;
         this.a = 1103515245;

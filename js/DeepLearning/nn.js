@@ -25,33 +25,31 @@
  * @property { string[] } _Identifiers
  */
 
- (function(){
+(function () {
 
-    class NeuralNetwork
-    {
+    class NeuralNetwork {
         constructor(o) {
             if (this.constructor === NeuralNetwork) {
-                throw new TypeError('Abstract class "NeuralNetwork" cannot be instantiated directly.'); 
+                throw new TypeError('Abstract class "NeuralNetwork" cannot be instantiated directly.');
             }
-            
-            o = o || { 
-                file  : "parameters.json",
+
+            o = o || {
+                file: "parameters.json",
                 folder: "data",
-                out   : "data",
+                out: "data",
             };
-            
+
             this._tensors = {};
-            this.folder   = o.folder.lastIndexOf("/") < 0? o.folder+"/" : o.folder;
-            this.out      = o.out.lastIndexOf("/") < 0? o.out+"/" : o.out;
-            
-            for(let func of [
+            this.folder = o.folder.lastIndexOf("/") < 0 ? o.folder + "/" : o.folder;
+            this.out = o.out.lastIndexOf("/") < 0 ? o.out + "/" : o.out;
+
+            for (let func of [
                 "fromData",
                 "toData",
                 "Predict",
                 "SetInput",
                 "GetOutput",
-            ])
-            {
+            ]) {
                 if (this[func] === undefined) {
                     throw new TypeError('Classes extending the widget abstract class');
                 }
@@ -63,11 +61,10 @@
          * @param {*} b 
          * @param {*} c 
          */
-        CreateTensor(ID, b, c)
-        {
-            return ( c.constructor.name == "Number" ) ? CreateTensorWH(ID,b,c) : CreateTensorM(ID,b);
+        CreateTensor(ID, b, c) {
+            return (c.constructor.name == "Number") ? CreateTensorWH(ID, b, c) : CreateTensorM(ID, b);
         }
-        
+
         /**
          * Creates a tensor
          * @param {number} rows 
@@ -75,20 +72,19 @@
          * @param {string} id
          * @return {Tensor}
          */
-        CreateTensorWH( id, rows, cols )
-        {
-            if(this._tensors[id]){
+        CreateTensorWH(id, rows, cols) {
+            if (this._tensors[id]) {
                 console.log("Tensor with ID " + id + " already contained.");
                 return null;
             }
-            
+
             let T = new Tensor(rows, cols);
-           
+
             T.id = id;
             this._tensors[id] = T;
             return T;
         }
-        
+
         /**
          * Creates a tensor
          * @param {MANNParameters} Parameters 
@@ -96,20 +92,19 @@
          * @param {string} id 
          * @return {Tensor}
          */
-        CreateTensorM(id , matrix ) {
-            if(this._tensors[id]){
+        CreateTensorM(id, matrix) {
+            if (this._tensors[id]) {
                 console.log("Tensor with ID " + id + " already contained.");
                 return null;
             }
-            
-            let T = new Tensor(rows,cols); 
-            for(let x = 0;  x < matrix.Rows; ++x) 
-            for(let y = 0;  y < matrix.Cols; ++y) 
-            {
-                var index = T.locToIndex([x,y]);
-                T.SetValue(x,y,matrix.Values[x].Values[y]); 
-            }
-            
+
+            let T = new Tensor(rows, cols);
+            for (let x = 0; x < matrix.Rows; ++x)
+                for (let y = 0; y < matrix.Cols; ++y) {
+                    var index = T.locToIndex([x, y]);
+                    T.SetValue(x, y, matrix.Values[x].Values[y]);
+                }
+
             T.id = id;
             this._tensors[id] = T;
             return T;
@@ -120,7 +115,7 @@
          * @param {Tensor} T 
          */
         DeleteTensor(T) {
-            if(!this._tensors[id]){
+            if (!this._tensors[id]) {
                 console.log("Tensor with ID " + id + " not found.");
                 return;
             }
@@ -134,14 +129,14 @@
          * @return {Tensor}
          */
         GetTensor(id) {
-            if(!this._tensors[id]){
+            if (!this._tensors[id]) {
                 console.log("Tensor with ID " + id + " not found.");
                 return;
             }
-        
+
             this._tensors[id];
         }
-        
+
         /**
          * TODO: copy or reference?
          * @param {Tensor} IN 
@@ -152,7 +147,7 @@
          */
         Normalise(IN, mean, std, OUT) {
             //throw("Not Implemented");
-            
+
             //Eigen.Normalise(IN.id, mean.id, std.id, OUT.id);
 
             // JS implementation:
@@ -162,17 +157,17 @@
             let stdM = std.GetMatrix();
             let outM = OUT.GetMatrix();
 
-            for (let i = 0; i < inM.length; i++) 
-            for (let j = 0; j < inM[i].length; j++) // should be one column
-            {
-                let temp = inM[i][j] - meanM[i][j];
-                let stdv = stdM[i][j];
-                if (stdv !== 0)
-                    outM[i][j] = temp / stdv;
-                else
-                    outM[i][j] = temp;
-            }
-            
+            for (let i = 0; i < inM.length; i++)
+                for (let j = 0; j < inM[i].length; j++) // should be one column
+                {
+                    let temp = inM[i][j] - meanM[i][j];
+                    let stdv = stdM[i][j];
+                    if (stdv !== 0)
+                        outM[i][j] = temp / stdv;
+                    else
+                        outM[i][j] = temp;
+                }
+
 
             //return OUT;
         }
@@ -188,7 +183,7 @@
          */
         Renormalise(IN, mean, std, OUT) {
             //throw("Not Implemented");
-            
+
             //Eigen.Renormalise(IN.id, mean.id, std.id, OUT.id);
 
             // JS implementation:
@@ -201,7 +196,7 @@
             for (let i = 0; i < inM.length; i++)
                 for (let j = 0; j < inM[i].length; j++) // should be one column
                     outM[i][j] = inM[i][j] * stdM[i][j] + meanM[i][j];
-                
+
             //return OUT;
         }
 
@@ -221,9 +216,9 @@
             // JS implementation:
             // OUT = W * IN + b
 
-            let inM =  IN.GetMatrix();
-            let wM =   W.GetMatrix();
-            let bM =   b.GetMatrix();
+            let inM = IN.GetMatrix();
+            let wM = W.GetMatrix();
+            let bM = b.GetMatrix();
             let outM = OUT.GetMatrix();
 
             for (let i = 0; i < wM.length; i++) {
@@ -247,7 +242,7 @@
          */
         Blend(T, W, w) {
             //throw("Not Implemented");
-            
+
             //Eigen.Blend(T.id, W.id, w);
 
             // JS Implementation:
@@ -255,9 +250,9 @@
             let outM = T.GetMatrix();
             let wM = W.GetMatrix();
             for (let i = 0; i < outM.length; i++)
-            for (let j = 0; j < outM[i].length; j++)
-                    outM[i][j] += wM[i][j] * w;            
-            
+                for (let j = 0; j < outM[i].length; j++)
+                    outM[i][j] += wM[i][j] * w;
+
             return T;
         }
 
@@ -270,7 +265,7 @@
          */
         ELU(T) {
             //throw("Not Implemented");
-            
+
             //return T.toTensor().elu();
 
             // JS implementation:
@@ -278,9 +273,9 @@
             let m = T.GetMatrix();
             console.assert(m.length === 0 || m[0].length === 1, "implemented for 1D only", window.DEBUG)
             for (let i = 0; i < m.length; i++) {
-                    let val = m[i][0]; // should be one column
-                    if (val < 0)
-                        m[i][0] = exp(val) - 1; // in-place operation                
+                let val = m[i][0]; // should be one column
+                if (val < 0)
+                    m[i][0] = exp(val) - 1; // in-place operation                
             }
             return T;
         }
@@ -292,8 +287,8 @@
          * @return {Tensor} T
          */
         Sigmoid(T) {
-            throw("Not Implemented");
-            
+            throw ("Not Implemented");
+
             //return T.toTensor().sigmoid();
         }
 
@@ -304,8 +299,8 @@
          * @return {Tensor} T
          */
         TanH(T) {
-            throw("Not Implemented");
-            
+            throw ("Not Implemented");
+
             //return T.toTensor().tanh();
         }
 
@@ -317,7 +312,7 @@
          */
         SoftMax(T) {
             //throw("Not Implemented");
-                    
+
             //Eigen.SoftMax(T.id);
 
             // JS implementation:
@@ -329,17 +324,19 @@
             for (let i = 0; i < m.length; i++) {
                 let val = exp(m[i][0]); // should be one column
                 sum += val;
-                expT.push(val);                
+                expT.push(val);
             }
             if (sum !== 0) {
                 for (let i = 0; i < m.length; i++) {
                     m[i][0] = expT[i] / sum; // in-place operation
-            }
-          
-            return T;
-        }
-    }
+                }
 
+                return T;
+            }
+        }
+
+
+    }
     window.NeuralNetwork = NeuralNetwork;
-    
+
 })(window);

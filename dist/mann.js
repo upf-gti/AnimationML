@@ -32,9 +32,10 @@
 
 "use strict";
 
-(function(window){
+(function(){
 
     function RNG(seed) {
+        if(!this) throw("RNG hasn't been called with `new` before");
         // LCG using GCC's constants
         this.m = 0x80000000; // 2**31;
         this.a = 1103515245;
@@ -173,390 +174,612 @@ if(!DEG2RAD)
      ╚═════╝    ╚═╝   ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝   
                                                    
 */ 
+(function(){
 
-class Gaussian{
-    constructor(random)
-    {
-        this._hasDeviate;
-        this._storedDeviate;
-        this._random;
 
-        this._random = random || Math.random();
-    }
+    class Gaussian{
+        constructor(random)
+        {
+            this._hasDeviate;
+            this._storedDeviate;
+            this._random;
 
-    /**
-     * 
-     * @param {double} mu
-     * @param {double} sigma
-     * @returns {double}
-     */
-    NextGaussian(mu = 0, sigma = 1)
-    {
-        if(sigma <= 0)
-            throw ("sigma must be greater than zero.");
-
-        if(this._hasDeviate) {
-            this._hasDeviate = false;
-            return this._storedDeviate * sigma + mu;
+            this._random = random || new RNG(1337);
         }
 
-        let v1, v2, rSquared;
-        do {
-            // two random values between -1.0 and 1.0
-            //v1 = 2 * _random.NextDouble() - 1;
-            v1 = 2 * Math.random() - 1;
-            //v2 = 2 * _random.NextDouble() - 1;
-            v2 = 2 * Math.random() - 1;
-            rSquared = v1*v1 + v2*v2;
-            // ensure within the unit circle
-        } while (rSquared >= 1 || rSquared == 0);
+        /**
+         * 
+         * @param {double} mu
+         * @param {double} sigma
+         * @returns {double}
+         */
+        NextGaussian(mu = 0, sigma = 1)
+        {
+            if(sigma <= 0)
+                throw ("sigma must be greater than zero.");
 
-        // calculate polar tranformation for each deviate
-        var polar = Math.sqrt( -2 * Math.log(rSquared) / rSquared );
-        // store first deviate
-        this._storedDeviate = v2 * polar;
-        this._hasDeviate = true;
-        // return second deviate
-        return v1 * polar * sigma + mu;
-    }
-}
+            if(this._hasDeviate) {
+                this._hasDeviate = false;
+                return this._storedDeviate * sigma + mu;
+            }
 
-class Utility
-{
-    static GetRNG() {
-		if(Utility.RNG == null) {
-			Utility.RNG = Math.random();
-		}
-		return Utility.RNG;
+            let v1, v2, rSquared;
+            do {
+                // two random values between -1.0 and 1.0
+                //v1 = 2 * _random.NextDouble() - 1;
+                v1 = 2 * this._random.nextFloat() - 1;
+                //v2 = 2 * _random.NextDouble() - 1;
+                v2 = 2 * this._random.nextFloat() - 1;
+                rSquared = v1*v1 + v2*v2;
+                // ensure within the unit circle
+            } while (rSquared >= 1 || rSquared == 0);
+
+            // calculate polar tranformation for each deviate
+            var polar = Math.sqrt( -2 * Math.log(rSquared) / rSquared );
+            // store first deviate
+            this._storedDeviate = v2 * polar;
+            this._hasDeviate = true;
+            // return second deviate
+            return v1 * polar * sigma + mu;
+        }
     }
-    
-    /**
-     * 
-     * @param {float} roll 
-     * @param {float} pitch 
-     * @param {float} yaw 
-     * @returns {quat}
-     */
-    static QuaternionEuler(roll, pitch, yaw) 
+
+    window.Gaussian = Gaussian;
+
+    class Utility
     {
-		roll  *= DEG2RAD / 2;
-		pitch *= DEG2RAD / 2;
-		yaw   *= DEG2RAD / 2;
-
-		let Z = vec3.clone(vec3.FRONT),
-		    X = vec3.clone(vec3.RIGHT),
-		    Y = vec3.clone(vec3.UP);
-
-		let sin, cos;
-
-		sin = Math.sin(roll);
-		cos = Math.cos(roll);
-	    let q1 = quat.fromValues(0, 0, Z[2] * sin, cos);
-		sin = sin(pitch);
-		cos = cos(pitch);
-		let q2 = quat.fromValues(X[0] * sin, 0, 0, cos);
-		sin = sin(yaw);
-		cos = cos(yaw);
-		let q3 = quat.fromValues(0, Y[1] * sin, 0, cos);
-
-		return this.MultiplyQuaternions(this.MultiplyQuaternions(q1, q2), q3);
-    }
-    
-    /**
-     * 
-     * @param {quat} q1 
-     * @param {quat} q2 
-     * @returns {quat}
-     */
-    static MultiplyQuaternions(q1, q2) 
-    {
-		let x =  q1[0] * q2[3] + q1[1] * q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
-		let y = -q1[0] * q2[2] + q1[1] * q2[3] + q1[2] * q2[0] + q1[3] * q2[1];
-		let z =  q1[0] * q2[1] - q1[1] * q2[0] + q1[2] * q2[3] + q1[3] * q2[2];
-		let w = -q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] + q1[3] * q2[3];
-		return quat.fromValues(x, y, z, w);
-    }
-    
-    /**
-     * 
-     * @param {string} name 
-     * @param {int} x 
-     * @param {int} y 
-     * @param {int} width 
-     * @param {int} height 
-     * @returns {void}
-     */
-    static screenshot(name, x, y, width, height) 
-    {
-        throw("not implemented");
-        /*
-    	Texture2D tex = new Texture2D(width, height);
-		tex.ReadPixels(new Rect(x, y, width, height), 0, 0);
-		tex.Apply();
-		byte[] bytes = tex.EncodeToPNG();
-    	File.WriteAllBytes(name + ".png", bytes);
-        Destroy(tex);
-        */
-    }
-    
-    /**
-     * 
-     * @param {int} fps 
-     */
-    static SetFPS(fps) {
-        throw("not implemented");
-        
-		/*#if UNITY_EDITOR
-		QualitySettings.vSyncCount = 0;
-		#else
-		QualitySettings.vSyncCount = 1;
-		#endif
-		Application.targetFrameRate = fps;*/
-    }
-    
-    /**
-     * @param {vec3} origin
-     * @param {LayerMask} mask
-     * @returns {float}
-     */
-    static GetHeight( origin, mask ) 
-    {
-        const MinValue = 1.175494351e-38;
-        const MaxValue = 3.402823466e+38;
-
-        let upHits = [];
-        let downHits = [];
-
-        //Translate to litescene 
-		//RaycastHit[] upHits   = Physics.RaycastAll(origin+Vector3.down, Vector3.up, float.PositiveInfinity, mask);
-		//RaycastHit[] downHits = Physics.RaycastAll(origin+Vector3.up, Vector3.down, float.PositiveInfinity, mask);
-        
-        if(upHits.length == 0 && downHits.length == 0) {
-			return origin[1];
+        static GetRNG() {
+            if(Utility.RNG === null || Utility.RNG === undefined) {
+                Utility.RNG = new RNG(1337);
+            }
+            return Utility.RNG;
         }
         
-		let height = MinValue;
-        for(let i = 0; i < downHits.length; ++i) 
+        /**
+         * @param {float} roll 
+         * @param {float} pitch 
+         * @param {float} yaw 
+         * @returns {quat}
+         */
+        static QuaternionEuler(roll, pitch, yaw) 
         {
-			if(
-                downHits[i].point[1] > height 
-                //&& !downHits[i].collider.isTrigger //Check that the collided item is not a trigger
-            ) {
-				height = downHits[i].point[1];
-			}
-		}
-        for(let i = 0; i < upHits.length; ++i) 
-        {
-			if(
-                upHits[i].point[1] > height 
-                //&& !upHits[i].collider.isTrigger
-            ) {
-				height = upHits[i].point[1];
-			}
-		}
-		return height;
-	}
+            roll  *= DEG2RAD / 2;
+            pitch *= DEG2RAD / 2;
+            yaw   *= DEG2RAD / 2;
 
-}
-Utility.RNG = Math.random();
+            let Z = vec3.clone(vec3.FRONT),
+                X = vec3.clone(vec3.RIGHT),
+                Y = vec3.clone(vec3.UP);
+
+            let sin, cos;
+
+            sin = Math.sin(roll);
+            cos = Math.cos(roll);
+            let q1 = quat.fromValues(0, 0, Z[2] * sin, cos);
+            sin = sin(pitch);
+            cos = cos(pitch);
+            let q2 = quat.fromValues(X[0] * sin, 0, 0, cos);
+            sin = sin(yaw);
+            cos = cos(yaw);
+            let q3 = quat.fromValues(0, Y[1] * sin, 0, cos);
+
+            return this.MultiplyQuaternions(this.MultiplyQuaternions(q1, q2), q3);
+        }
+        
+        /**
+         * @param {quat} q1 
+         * @param {quat} q2 
+         * @returns {quat}
+         */
+        static MultiplyQuaternions(q1, q2) 
+        {
+            let x =  q1[0] * q2[3] + q1[1] * q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
+            let y = -q1[0] * q2[2] + q1[1] * q2[3] + q1[2] * q2[0] + q1[3] * q2[1];
+            let z =  q1[0] * q2[1] - q1[1] * q2[0] + q1[2] * q2[3] + q1[3] * q2[2];
+            let w = -q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] + q1[3] * q2[3];
+            return quat.fromValues(x, y, z, w);
+        }
+        
+        /**
+         * @param {string} name 
+         * @param {int} x 
+         * @param {int} y 
+         * @param {int} width 
+         * @param {int} height 
+         * @returns {void}
+         */
+        static Screenshot(name, x, y, width, height) 
+        {
+            throw("not implemented");
+            /*
+            Texture2D tex = new Texture2D(width, height);
+            tex.ReadPixels(new Rect(x, y, width, height), 0, 0);
+            tex.Apply();
+            byte[] bytes = tex.EncodeToPNG();
+            File.WriteAllBytes(name + ".png", bytes);
+            Destroy(tex);
+            */
+        }
+        
+        /**
+         * @param {int} fps 
+         */
+        static SetFPS(fps) {
+            throw("not implemented");
+            
+            /*#if UNITY_EDITOR
+            QualitySettings.vSyncCount = 0;
+            #else
+            QualitySettings.vSyncCount = 1;
+            #endif
+            Application.targetFrameRate = fps;*/
+        }
+        
+        /**
+         */
+        static GetTimestamp() {
+            return new Date();
+        }
+
+        /**
+         * @param {vec3} origin
+         * @param {LayerMask} mask
+         * @returns {float}
+         */
+        static GetHeight( origin, mask ) 
+        {
+            throw("not implemented");
+            
+            const MinValue = 1.175494351e-38;
+            const MaxValue = 3.402823466e+38;
+
+            let upHits = [];
+            let downHits = [];
+
+            //Translate to litescene 
+            //RaycastHit[] upHits   = Physics.RaycastAll(origin+Vector3.down, Vector3.up, float.PositiveInfinity, mask);
+            //RaycastHit[] downHits = Physics.RaycastAll(origin+Vector3.up, Vector3.down, float.PositiveInfinity, mask);
+            
+            if(upHits.length == 0 && downHits.length == 0) {
+                return origin[1];
+            }
+            
+            let height = MinValue;
+            for(let i = 0; i < downHits.length; ++i) 
+            {
+                if(
+                    downHits[i].point[1] > height 
+                    //&& !downHits[i].collider.isTrigger //Check that the collided item is not a trigger
+                ) {
+                    height = downHits[i].point[1];
+                }
+            }
+            for(let i = 0; i < upHits.length; ++i) 
+            {
+                if(
+                    upHits[i].point[1] > height 
+                    //&& !upHits[i].collider.isTrigger
+                ) {
+                    height = upHits[i].point[1];
+                }
+            }
+            return height;
+        }
+
+    }
+    Utility.RNG = new RNG(1337);
+    window.Utility = Utility;
+
+})();
 "use strict";
 
-/* 
+/*
+ 
+    ████████╗██████╗  █████╗      ██╗███████╗ ██████╗████████╗ ██████╗ ██████╗ ██╗   ██╗
+    ╚══██╔══╝██╔══██╗██╔══██╗     ██║██╔════╝██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗╚██╗ ██╔╝
+       ██║   ██████╔╝███████║     ██║█████╗  ██║        ██║   ██║   ██║██████╔╝ ╚████╔╝ 
+       ██║   ██╔══██╗██╔══██║██   ██║██╔══╝  ██║        ██║   ██║   ██║██╔══██╗  ╚██╔╝  
+       ██║   ██║  ██║██║  ██║╚█████╔╝███████╗╚██████╗   ██║   ╚██████╔╝██║  ██║   ██║   
+       ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚════╝ ╚══════╝ ╚═════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
+    Depends on:
+    * http://glmatrix.net/
+    * Matrix4x4Extensions : https://github.com/sebastianstarke/AI4Animation/blob/master/AI4Animation/SIGGRAPH_2018/Unity/Assets/Scripts/Libraries/Matrix4x4Extensions.cs
+    * UltiDraw   
+    * Utility                                                                               
+ 
+*/
 
-    ██╗   ██╗████████╗██╗██╗     ██╗████████╗██╗   ██╗
-    ██║   ██║╚══██╔══╝██║██║     ██║╚══██╔══╝╚██╗ ██╔╝
-    ██║   ██║   ██║   ██║██║     ██║   ██║    ╚████╔╝ 
-    ██║   ██║   ██║   ██║██║     ██║   ██║     ╚██╔╝  
-    ╚██████╔╝   ██║   ██║███████╗██║   ██║      ██║   
-     ╚═════╝    ╚═╝   ╚═╝╚══════╝╚═╝   ╚═╝      ╚═╝   
-                                                   
-*/ 
 
-class Gaussian{
-    constructor(random)
-    {
-        this._hasDeviate;
-        this._storedDeviate;
-        this._random;
+(function () {
 
-        this._random = random || Math.random();
-    }
+    class Trajectory {
 
-    /**
-     * 
-     * @param {double} mu
-     * @param {double} sigma
-     * @returns {double}
-     */
-    NextGaussian(mu = 0, sigma = 1)
-    {
-        if(sigma <= 0)
-            throw ("sigma must be greater than zero.");
+        /**
+         * Looks complicated but i had to merge 3 constructors in just one
+         * @param {number} size 
+         * @param {number} styles 
+         * @param {Vector3 | Vector3[]}  seedPosition 
+         * @param {Vector3 | Vector3[] | Quaternion} seedDirection 
+         */
+        constructor(size, styles, seedPosition, seedDirection) {
+            this.Inspect = false;
+            this.Points = new Point[size];
 
-        if(this._hasDeviate) {
-            this._hasDeviate = false;
-            return this._storedDeviate * sigma + mu;
+            let mat = mat4.create();
+
+            if (seedPosition && seedDirection) {
+                if (isArray(seedPosition) && seedPosition.length > 0 && isArray(seedPosition[0])) {
+                    for (let i = 0; i < Points.length; ++i) {
+                        mat4.fromRotationTranslation(mat, quat.lookRotation(quat.create(), seedDirection[i], vec3.UP), seedPosition[i]);
+                        this.Points[i] = new Point(i, styles);
+                        this.Points[i].SetTransformation(mat);
+                    }
+                    return;
+                }
+
+                let rot = (seedDirection.length == 3) ? quat.lookRotation(quat.create(), seedDirection, vec3.UP) : seedDirection;
+                mat = mat4.fromRotationTranslation(mat4.create(), rot, seedPosition);
+            }
+
+            for (let i = 0; i < Points.length; ++i) {
+                this.Points[i] = new Point(i, styles);
+                this.Points[i].SetTransformation(mat);
+            }
         }
 
-        let v1, v2, rSquared;
-        do {
-            // two random values between -1.0 and 1.0
-            //v1 = 2 * _random.NextDouble() - 1;
-            v1 = 2 * Math.random() - 1;
-            //v2 = 2 * _random.NextDouble() - 1;
-            v2 = 2 * Math.random() - 1;
-            rSquared = v1*v1 + v2*v2;
-            // ensure within the unit circle
-        } while (rSquared >= 1 || rSquared == 0);
-
-        // calculate polar tranformation for each deviate
-        var polar = Math.sqrt( -2 * Math.log(rSquared) / rSquared );
-        // store first deviate
-        this._storedDeviate = v2 * polar;
-        this._hasDeviate = true;
-        // return second deviate
-        return v1 * polar * sigma + mu;
-    }
-}
-
-class Utility
-{
-    static GetRNG() {
-		if(Utility.RNG == null) {
-			Utility.RNG = Math.random();
-		}
-		return Utility.RNG;
-    }
-    
-    /**
-     * 
-     * @param {float} roll 
-     * @param {float} pitch 
-     * @param {float} yaw 
-     * @returns {quat}
-     */
-    static QuaternionEuler(roll, pitch, yaw) 
-    {
-		roll  *= DEG2RAD / 2;
-		pitch *= DEG2RAD / 2;
-		yaw   *= DEG2RAD / 2;
-
-		let Z = vec3.clone(vec3.FRONT),
-		    X = vec3.clone(vec3.RIGHT),
-		    Y = vec3.clone(vec3.UP);
-
-		let sin, cos;
-
-		sin = Math.sin(roll);
-		cos = Math.cos(roll);
-	    let q1 = quat.fromValues(0, 0, Z[2] * sin, cos);
-		sin = sin(pitch);
-		cos = cos(pitch);
-		let q2 = quat.fromValues(X[0] * sin, 0, 0, cos);
-		sin = sin(yaw);
-		cos = cos(yaw);
-		let q3 = quat.fromValues(0, Y[1] * sin, 0, cos);
-
-		return this.MultiplyQuaternions(this.MultiplyQuaternions(q1, q2), q3);
-    }
-    
-    /**
-     * 
-     * @param {quat} q1 
-     * @param {quat} q2 
-     * @returns {quat}
-     */
-    static MultiplyQuaternions(q1, q2) 
-    {
-		let x =  q1[0] * q2[3] + q1[1] * q2[2] - q1[2] * q2[1] + q1[3] * q2[0];
-		let y = -q1[0] * q2[2] + q1[1] * q2[3] + q1[2] * q2[0] + q1[3] * q2[1];
-		let z =  q1[0] * q2[1] - q1[1] * q2[0] + q1[2] * q2[3] + q1[3] * q2[2];
-		let w = -q1[0] * q2[0] - q1[1] * q2[1] - q1[2] * q2[2] + q1[3] * q2[3];
-		return quat.fromValues(x, y, z, w);
-    }
-    
-    /**
-     * 
-     * @param {string} name 
-     * @param {int} x 
-     * @param {int} y 
-     * @param {int} width 
-     * @param {int} height 
-     * @returns {void}
-     */
-    static screenshot(name, x, y, width, height) 
-    {
-        throw("not implemented");
-        /*
-    	Texture2D tex = new Texture2D(width, height);
-		tex.ReadPixels(new Rect(x, y, width, height), 0, 0);
-		tex.Apply();
-		byte[] bytes = tex.EncodeToPNG();
-    	File.WriteAllBytes(name + ".png", bytes);
-        Destroy(tex);
-        */
-    }
-    
-    /**
-     * 
-     * @param {int} fps 
-     */
-    static SetFPS(fps) {
-        throw("not implemented");
-        
-		/*#if UNITY_EDITOR
-		QualitySettings.vSyncCount = 0;
-		#else
-		QualitySettings.vSyncCount = 1;
-		#endif
-		Application.targetFrameRate = fps;*/
-    }
-    
-    /**
-     * @param {vec3} origin
-     * @param {LayerMask} mask
-     * @returns {float}
-     */
-    static GetHeight( origin, mask ) 
-    {
-        const MinValue = 1.175494351e-38;
-        const MaxValue = 3.402823466e+38;
-
-        let upHits = [];
-        let downHits = [];
-
-        //Translate to litescene 
-		//RaycastHit[] upHits   = Physics.RaycastAll(origin+Vector3.down, Vector3.up, float.PositiveInfinity, mask);
-		//RaycastHit[] downHits = Physics.RaycastAll(origin+Vector3.up, Vector3.down, float.PositiveInfinity, mask);
-        
-        if(upHits.length == 0 && downHits.length == 0) {
-			return origin[1];
+        /**
+         * @return {Point}
+         */
+        GetFirst() {
+            return this.Points[0];
         }
-        
-		let height = MinValue;
-        for(let i = 0; i < downHits.length; ++i) 
-        {
-			if(
-                downHits[i].point[1] > height 
-                //&& !downHits[i].collider.isTrigger //Check that the collided item is not a trigger
-            ) {
-				height = downHits[i].point[1];
-			}
-		}
-        for(let i = 0; i < upHits.length; ++i) 
-        {
-			if(
-                upHits[i].point[1] > height 
-                //&& !upHits[i].collider.isTrigger
-            ) {
-				height = upHits[i].point[1];
-			}
-		}
-		return height;
-	}
 
-}
-Utility.RNG = Math.random();/*
+        /**
+         * 
+         * @return {Point}
+         */
+        GetLast() {
+            return this.Points[this.Points.length - 1];
+        }
+
+        /**
+         * 
+         * @return {number} length
+         */
+        GetLength() {
+            let length = 0;
+            for (let i = 1; i < this.Points.length; ++i) {
+                length += vec3.distance(this.Points[i - 1].GetPosition(), this.Points[i].GetPosition());
+            }
+            return length;
+        }
+
+        /**
+         * 
+         * @param {number} start 
+         * @param {number} end 
+         * @param {number} step 
+         * 
+         * @return {number} length
+         */
+        GetLength(start, end, step) {
+            let length = 0;
+            for (let i = 0; i < end - step; i += step) {
+                length += vec3.distance(this.Points[i + step].GetPosition(), this.Points[i].GetPosition());
+            }
+            return length;
+        }
+
+        /**
+         * 
+         * @param {number} start 
+         * @param {number} end 
+         * @param {number} step 
+         * @return {number} curvature
+         */
+        GetCurvature(start, end, step) {
+            let curvature = 0;
+            for (let i = step; i < end - step; i += step) {
+                curvature += vec3.signedAngle(this.Points[i].GetPosition() - this.Points[i - step].GetPosition(), this.Points[i + step].GetPosition() - this.Points[i].GetPosition(), vec3.UP);
+            }
+            curvature = Mathf.abs(curvature);
+            curvature = Mathf.clamp(curvature / 180, 0, 1);
+            return curvature;
+        }
+
+        /**
+         * 
+         */
+        Postprocess() {
+            for (let i = 0; i < this.Points.Length; ++i) {
+                this.Points[i].Postprocess();
+            }
+        }
+    }
+
+    /**
+     * @property { number } this._Index;
+     * @property { mat4   } this._Transformation;
+     * @property { vec3   } this._Velocity;
+     * @property { number } this._Speed;
+     * @property { vec3   } this._LeftSample;
+     * @property { vec3   } this._RightSample;
+     * @property { number } this._Slope;
+     * @property { number[]} Styles;
+     */
+    Trajectory.Point = class Point {
+
+        constructor(index, styles) {
+            this._Index = index;
+            this._Transformation = mat4.create();
+            this._Velocity = vec3.clone(vec3.zero);
+            this._Speed = vec3.clone(vec3.zero);
+            this._LeftSample = vec3.clone(vec3.zero);
+            this._RightSample = vec3.clone(vec3.zero);
+            this._Slope = 0;
+            this.Styles = new Float32Array(styles);
+        }
+
+        /**
+         * 
+         * @param {number} index 
+         */
+        SetIndex(index) {
+            this._Index = index;
+        }
+
+        /**
+         * 
+         * @return {number}
+         */
+        GetIndex() {
+            return this._Index;
+        }
+
+        /**
+         * 
+         * @param {mat4} matrix 
+         */
+        SetTransformation(matrix) {
+            this._Transformation = matrix;
+        }
+
+        /**
+         * 
+         * @param {Point} p 
+         */
+        Copy(p) {
+            this._Transformation = p._Transformation;
+            this._Velocity = p._Velocity;
+            this._Speed = p._Speed;
+            for (let i = 0; i < this.Styles.length; ++i)
+                this.Styles[i] = p.Styles[i];
+        }
+
+        /**
+         * 
+         * @param {mat4} matrix 
+         */
+        ApplyPostTransform(matrix) {
+            mat4.mul(this._Transformation, this._Transformation, matrix);
+        }
+
+        /**
+         * 
+         * @param {mat4} matrix 
+         */
+        ApplyDelta(matrix) {
+            let pos = mat4.multiplyPoint(vec3.create(), matrix.GetPosition());
+            let rotated = mat4.mul(mat4.create(), matrix, this._Transformation);
+            for (let i = 0; i < 3; ++i) {
+                this._Transformation[i, 3] = pos[i];
+                for (let j = 0; j < 3; ++j)
+                    this._Transformation[i, j] = rotated[i, j];
+            }
+        }
+
+        /**
+         * 
+         * @return {mat4}
+         */
+        GetTransformation() {
+            return this._Transformation;
+        }
+
+        /**
+         * 
+         * @param {vec3} position 
+         */
+        SetPosition(position) {
+            //Matrix4x4Extensions.SetPosition(this._Transformation, position);
+            mat4.setTranslation(this._Transformation, position);
+        }
+
+        /**
+         * @param {vec3} position 
+         */
+        GetPosition() {
+            //return Matrix4x4Extensions.GetPosition(this._Transformation);
+            return mat4.getTranslation(vec3.create(), this._Transformation);
+        }
+
+        /**
+         * 
+         */
+        SetRotation(v) {
+            //Matrix4x4Extensions.SetRotation(this._Transformation, v);
+            if (!isArray(v) || v.length != 4)
+                throw ("rotation expected to be quaternion");
+
+            mat4.fromRotationTranslation(this._Transformation, v, this.GetPosition());
+        }
+
+        /**
+         *  @return {quat} 
+         */
+        GetRotation() {
+            //return Matrix4x4Extensions.GetQuaternion(this._Transformation);
+            return quat.fromMat4(quat.create(), this._Transformation);
+        }
+
+        /**
+         * 
+         * @param {vec3} direction 
+         */
+        SetDirection(direction) {
+            let q = quat.lookRotation(quat.create(), direction == vec3.ZERO ? vec3.FRONT : direction, vec3.UP);
+            this.SetRotation(q);
+        }
+
+        /**
+         * @return {vec3} direction 
+         */
+        GetDirection() {
+            //return Matrix4x4Extensions.GetForward(this._Transformation);
+            let m = this._Transformation;
+            return vec3.fromValues(m[2], m[6], m[11]);
+        }
+
+        /**
+         * 
+         * @param {vec3} velocity 
+         */
+        SetVelocity(velocity) {
+            this._Velocity = velocity;
+        }
+
+        /**
+         * @return {vec3} velocity 
+         */
+        GetVelocity() {
+            return this._Velocity;
+        }
+
+        /**
+         * 
+         * @param {number} speed 
+         */
+        SetSpeed(speed) {
+            this._Speed = speed;
+        }
+
+        /**
+         * @return {number} speed
+         */
+        GetSpeed() {
+            return this._Speed;
+        }
+
+        /**
+         * @param {vec3} position 
+         */
+        SetLeftsample(position) {
+            this._LeftSample = position;
+        }
+
+        /**
+         * @return {vec3} leftsample 
+         */
+        GetLeftSample() {
+            return this._LeftSample;
+        }
+
+        /**
+         * @param {vec3} position 
+         */
+        SetRightSample(position) {
+            this._RightSample = position;
+        }
+
+        /**
+         * @return {vec3} rightsample 
+         */
+        GetRightSample() {
+            return this._RightSample;
+        }
+
+        /**
+         * @param {number} slope
+         */
+        SetSlope(slope) {
+            this._Slope = slope;
+        }
+
+        /**
+         * @return {number} slope
+         */
+        GetSlope() {
+            return this._Slope;
+        }
+
+        /**
+         * 
+         */
+        Postprocess() {
+            //LayerMask mask      = LayerMask.GetMask("Ground"); //wich items should check collision with
+            let position = this.GetPosition();
+            let direction = this.GetDirection();
+
+            position.y = Utility.GetHeight(position, mask);
+            this.SetPosition(position);
+
+            this._Slope = Utility.GetSlope(position, mask);
+
+            //TODO: Be sure if Javi's implementation expects degrees or radians
+            let q = quat.fromEuler(quat.create(), [0, 90, 0]);
+            let ortho = vec3.transformQuat(vec3.create(), q, direction);
+            let ortho_normalised = vec3.normalize(vec3.create(), ortho);
+
+            //Todo: what the hell is Trajectory.Width???
+            vec3.scale(this._RightSample, Trajectory.Width, ortho_normalized);
+            vec3.add(this._RightSample, this._RightSample, position);
+            this._RightSample[1] = Utility.GetHeight(this._RightSample, mask);
+
+            vec3.scale(this._RightSample, Trajectory.Width, ortho_normalized);
+            vec3.sub(this._RightSample, position, this._RightSample);
+            this._LeftSample[1] = Utility.GetHeight(this._LeftSample, mask);
+        }
+
+        /**
+         * TODO: Reimplement using LiteScene draw functions
+         * @property {number} step
+         */
+        Draw(step) {
+            /* if(step === undefined || step == null)
+                 step = 1;
+     
+             UltiDraw.Begin();
+     
+             //Connections
+             for(let i=0; i < this.Points.length - step; i += step) 
+             {
+                 UltiDraw.DrawLine(this.Points[i].GetPosition(), this.Points[i+step].GetPosition(), 0.01, UltiDraw.Black);
+             }
+     
+             //Velocities
+             for(let i=0; i<this.Points.length; i+=step) {
+                 UltiDraw.DrawLine(this.Points[i].GetPosition(), this.Points[i].GetPosition() + this.Points[i].GetVelocity(), 0.025, 0, UltiDraw.DarkGreen.Transparent(0.5));
+             }
+     
+             //Directions
+             for(let i=0; i<this.Points.length; i+=step) {
+                 UltiDraw.DrawLine(this.Points[i].GetPosition(), this.Points[i].GetPosition() + 0.25 * this.Points[i].GetDirection(), 0.025, 0, UltiDraw.Orange.Transparent(0.75));
+             }
+     
+             //Positions
+             for(let i=0; i<this.Points.length; i+=step) 
+             {
+                 UltiDraw.DrawCircle(this.Points[i].GetPosition(), 0.025, UltiDraw.Black);
+             }
+             
+             UltiDraw.End();*/
+        }
+    }
+
+    window.Trajectory = Trajectory;
+
+})();
+/*
  
     ███╗   ██╗███╗   ██╗███╗   ███╗ █████╗ ████████╗██╗  ██╗
     ████╗  ██║████╗  ██║████╗ ████║██╔══██╗╚══██╔══╝██║  ██║
@@ -569,58 +792,53 @@ Utility.RNG = Math.random();/*
                                                          
  
 */
+(function () {
 
-class NNMath
-{
-    /**
-     * @static
-     * @param {float} value 
-     * @param {float} valueMin 
-     * @param {float} valueMax 
-     * @param {float} resultMin 
-     * @param {float} resultMax 
-     * @return {float}
-     */
-    static Normalise( value, valueMin, valueMax, resultMin, resultMax)
-    {
-        if (valueMax - valueMin != 0)
-        {
-            return (value - valueMin) / (valueMax - valueMin) * (resultMax - resultMin) + resultMin;
-        }
-        else
-        {
-            console.warn("Not possible to normalise input value.")
-            return value;
-        }
-    }
-
-    /**
-     * 
-     * @param {float[]} values 
-     */
-    static SoftMax(values)
-    {
-        let min = Math.min(...values);
-        let max = Math.max(...values);
-        for (let i = 0; i < values.length; i++)
-        {
-            values[i] = this.Normalise(values[i],min,max, 0, 1);
-        }
-        let frac = 0;
-        for (let i = 0; i < values.length; ++i)
-        {
-            frac += values[i];
-        }
-        if (frac != 0)
-        {
-            for (let i = 0; i < values.length; ++i)
-            {
-                values[i] /= frac;
+    class NNMath {
+        /**
+         * @static
+         * @param {float} value 
+         * @param {float} valueMin 
+         * @param {float} valueMax 
+         * @param {float} resultMin 
+         * @param {float} resultMax 
+         * @return {float}
+         */
+        static Normalise(value, valueMin, valueMax, resultMin, resultMax) {
+            if (valueMax - valueMin != 0) {
+                return (value - valueMin) / (valueMax - valueMin) * (resultMax - resultMin) + resultMin;
+            }
+            else {
+                console.warn("Not possible to normalise input value.")
+                return value;
             }
         }
-    }
 
-}/*
+        /**
+         * 
+         * @param {float[]} values 
+         */
+        static SoftMax(values) {
+            let min = Math.min(...values);
+            let max = Math.max(...values);
+            for (let i = 0; i < values.length; i++) {
+                values[i] = this.Normalise(values[i], min, max, 0, 1);
+            }
+            let frac = 0;
+            for (let i = 0; i < values.length; ++i) {
+                frac += values[i];
+            }
+            if (frac != 0) {
+                for (let i = 0; i < values.length; ++i) {
+                    values[i] /= frac;
+                }
+            }
+        }
+
+    }
+    window.NNMath = NNMath;
+})();
+/*
  
 
     ████████╗███████╗███╗   ██╗███████╗ ██████╗ ██████╗ 
@@ -634,7 +852,7 @@ class NNMath
     * IntPTR
     * Eigen TODO: find an implementation
 */
-(function(window){
+(function(){
     
     "use strict";
 
@@ -929,33 +1147,31 @@ class NNMath
  * @property { string[] } _Identifiers
  */
 
- (function(){
+(function () {
 
-    class NeuralNetwork
-    {
+    class NeuralNetwork {
         constructor(o) {
             if (this.constructor === NeuralNetwork) {
-                throw new TypeError('Abstract class "NeuralNetwork" cannot be instantiated directly.'); 
+                throw new TypeError('Abstract class "NeuralNetwork" cannot be instantiated directly.');
             }
-            
-            o = o || { 
-                file  : "parameters.json",
+
+            o = o || {
+                file: "parameters.json",
                 folder: "data",
-                out   : "data",
+                out: "data",
             };
-            
+
             this._tensors = {};
-            this.folder   = o.folder.lastIndexOf("/") < 0? o.folder+"/" : o.folder;
-            this.out      = o.out.lastIndexOf("/") < 0? o.out+"/" : o.out;
-            
-            for(let func of [
+            this.folder = o.folder.lastIndexOf("/") < 0 ? o.folder + "/" : o.folder;
+            this.out = o.out.lastIndexOf("/") < 0 ? o.out + "/" : o.out;
+
+            for (let func of [
                 "fromData",
                 "toData",
                 "Predict",
                 "SetInput",
                 "GetOutput",
-            ])
-            {
+            ]) {
                 if (this[func] === undefined) {
                     throw new TypeError('Classes extending the widget abstract class');
                 }
@@ -967,14 +1183,10 @@ class NNMath
          * @param {*} b 
          * @param {*} c 
          */
-        CreateTensor(ID, b, c)
-        {
-            if( c.constructor.name == "Number" )
-            return CreateTensorWH(ID,b,c);
-            else
-            return CreateTensorM(ID,b);
+        CreateTensor(ID, b, c) {
+            return (c.constructor.name == "Number") ? CreateTensorWH(ID, b, c) : CreateTensorM(ID, b);
         }
-        
+
         /**
          * Creates a tensor
          * @param {number} rows 
@@ -982,19 +1194,19 @@ class NNMath
          * @param {string} id
          * @return {Tensor}
          */
-        CreateTensorWH( id, rows, cols )
-        {
-            if(this._tensors[id]){
+        CreateTensorWH(id, rows, cols) {
+            if (this._tensors[id]) {
                 console.log("Tensor with ID " + id + " already contained.");
                 return null;
             }
-            
+
             let T = new Tensor(rows, cols);
+
             T.id = id;
             this._tensors[id] = T;
             return T;
         }
-        
+
         /**
          * Creates a tensor
          * @param {MANNParameters} Parameters 
@@ -1002,20 +1214,19 @@ class NNMath
          * @param {string} id 
          * @return {Tensor}
          */
-        CreateTensorM(id , matrix ) {
-            if(this._tensors[id]){
+        CreateTensorM(id, matrix) {
+            if (this._tensors[id]) {
                 console.log("Tensor with ID " + id + " already contained.");
                 return null;
             }
-            
-            let T = new Tensor(rows,cols); 
-            for(let x = 0;  x < matrix.Rows; ++x) 
-            for(let y = 0;  y < matrix.Cols; ++y) 
-            {
-                var index = T.locToIndex([x,y]);
-                T.SetValue(x,y,matrix.Values[x].Values[y]); 
-            }
-            
+
+            let T = new Tensor(rows, cols);
+            for (let x = 0; x < matrix.Rows; ++x)
+                for (let y = 0; y < matrix.Cols; ++y) {
+                    var index = T.locToIndex([x, y]);
+                    T.SetValue(x, y, matrix.Values[x].Values[y]);
+                }
+
             T.id = id;
             this._tensors[id] = T;
             return T;
@@ -1026,7 +1237,7 @@ class NNMath
          * @param {Tensor} T 
          */
         DeleteTensor(T) {
-            if(!this._tensors[id]){
+            if (!this._tensors[id]) {
                 console.log("Tensor with ID " + id + " not found.");
                 return;
             }
@@ -1040,14 +1251,14 @@ class NNMath
          * @return {Tensor}
          */
         GetTensor(id) {
-            if(!this._tensors[id]){
+            if (!this._tensors[id]) {
                 console.log("Tensor with ID " + id + " not found.");
                 return;
             }
-        
+
             this._tensors[id];
         }
-        
+
         /**
          * TODO: copy or reference?
          * @param {Tensor} IN 
@@ -1057,10 +1268,30 @@ class NNMath
          * @return {Tensor} OUT
          */
         Normalise(IN, mean, std, OUT) {
-            throw("Not Implemented");
-            
+            //throw("Not Implemented");
+
             //Eigen.Normalise(IN.id, mean.id, std.id, OUT.id);
-            return OUT;
+
+            // JS implementation:
+            // OUT = (IN - mean) / std
+            let inM = IN.GetMatrix();
+            let meanM = mean.GetMatrix();
+            let stdM = std.GetMatrix();
+            let outM = OUT.GetMatrix();
+
+            for (let i = 0; i < inM.length; i++)
+                for (let j = 0; j < inM[i].length; j++) // should be one column
+                {
+                    let temp = inM[i][j] - meanM[i][j];
+                    let stdv = stdM[i][j];
+                    if (stdv !== 0)
+                        outM[i][j] = temp / stdv;
+                    else
+                        outM[i][j] = temp;
+                }
+
+
+            //return OUT;
         }
 
         /**
@@ -1073,10 +1304,22 @@ class NNMath
          * @return {Tensor} OUT
          */
         Renormalise(IN, mean, std, OUT) {
-            throw("Not Implemented");
-            
+            //throw("Not Implemented");
+
             //Eigen.Renormalise(IN.id, mean.id, std.id, OUT.id);
-            return OUT;
+
+            // JS implementation:
+            // OUT = IN * std + mean
+            let inM = IN.GetMatrix();
+            let meanM = mean.GetMatrix();
+            let stdM = std.GetMatrix();
+            let outM = OUT.GetMatrix();
+
+            for (let i = 0; i < inM.length; i++)
+                for (let j = 0; j < inM[i].length; j++) // should be one column
+                    outM[i][j] = inM[i][j] * stdM[i][j] + meanM[i][j];
+
+            //return OUT;
         }
 
         /**
@@ -1088,9 +1331,26 @@ class NNMath
          * @return {Tensor} OUT
          */
         Layer(IN, W, b, OUT) {
-            throw("Not Implemented");
+            //throw("Not Implemented");
 
             //Eigen.Layer(IN.id, W.id, b.id, OUT.id);
+
+            // JS implementation:
+            // OUT = W * IN + b
+
+            let inM = IN.GetMatrix();
+            let wM = W.GetMatrix();
+            let bM = b.GetMatrix();
+            let outM = OUT.GetMatrix();
+
+            for (let i = 0; i < wM.length; i++) {
+                let wRow = wM[i];
+                let temp = 0;
+                for (let j = 0; j < inM.length; j++)
+                    temp += wRow[j] * inM[j][0]; // assuming one column in IN
+                outM[i][0] = temp + bM[i][0]; // assuming one column in OUT and b
+            }
+
             return OUT;
         }
 
@@ -1103,9 +1363,18 @@ class NNMath
          * @return {Tensor} T
          */
         Blend(T, W, w) {
-            throw("Not Implemented");
-            
+            //throw("Not Implemented");
+
             //Eigen.Blend(T.id, W.id, w);
+
+            // JS Implementation:
+            // T += w * W
+            let outM = T.GetMatrix();
+            let wM = W.GetMatrix();
+            for (let i = 0; i < outM.length; i++)
+                for (let j = 0; j < outM[i].length; j++)
+                    outM[i][j] += wM[i][j] * w;
+
             return T;
         }
 
@@ -1117,9 +1386,20 @@ class NNMath
          * @return {Tensor} T
          */
         ELU(T) {
-            throw("Not Implemented");
-            
+            //throw("Not Implemented");
+
             //return T.toTensor().elu();
+
+            // JS implementation:
+            // T = exp(val) - 1 if x < 0 else val
+            let m = T.GetMatrix();
+            console.assert(m.length === 0 || m[0].length === 1, "implemented for 1D only", window.DEBUG)
+            for (let i = 0; i < m.length; i++) {
+                let val = m[i][0]; // should be one column
+                if (val < 0)
+                    m[i][0] = exp(val) - 1; // in-place operation                
+            }
+            return T;
         }
 
         /**
@@ -1129,8 +1409,8 @@ class NNMath
          * @return {Tensor} T
          */
         Sigmoid(T) {
-            throw("Not Implemented");
-            
+            throw ("Not Implemented");
+
             //return T.toTensor().sigmoid();
         }
 
@@ -1141,8 +1421,8 @@ class NNMath
          * @return {Tensor} T
          */
         TanH(T) {
-            throw("Not Implemented");
-            
+            throw ("Not Implemented");
+
             //return T.toTensor().tanh();
         }
 
@@ -1153,15 +1433,34 @@ class NNMath
          * @return {Tensor} T
          */
         SoftMax(T) {
-            throw("Not Implemented");
-                    
-            //Eigen.SoftMax(T.id);
-            return T;
-        }
-    }
+            //throw("Not Implemented");
 
+            //Eigen.SoftMax(T.id);
+
+            // JS implementation:
+            // T = exp(T) / sum(exp(T))
+            let m = T.GetMatrix();
+            console.assert(m.length === 0 || m[0].length === 1, "implemented for 1D only", window.DEBUG)
+            let expT = [];
+            let sum = 0;
+            for (let i = 0; i < m.length; i++) {
+                let val = exp(m[i][0]); // should be one column
+                sum += val;
+                expT.push(val);
+            }
+            if (sum !== 0) {
+                for (let i = 0; i < m.length; i++) {
+                    m[i][0] = expT[i] / sum; // in-place operation
+                }
+
+                return T;
+            }
+        }
+
+
+    }
     window.NeuralNetwork = NeuralNetwork;
-    
+
 })(window);
 /*
  
@@ -1187,7 +1486,7 @@ class NNMath
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.0.0/dist/tf.min.js"></script>
 
 */
-(function(window){
+(function(){
 
     "use strict";
 
@@ -1420,58 +1719,6 @@ class NNMath
         7:"ROTATION_VECTOR" ,
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
-    class MANN
-    {
-        constructor(o)
-        {
-            this._tensors = {};
-        }
-
-        addTensor(name, tensor){
-            if(!this._tensors[name])
-                this._tensors[name] = tensor;
-            
-            else throw `tensor ${name} already exists`;
-
-            return tensor;
-        }
-
-        delTensor(name){
-            if(this._tensors[name])
-                delete this._tensors[name];
-        }
-
-        /**
-         * Read parametrs from json and create related tensors
-         * @param {string} path 
-         */
-        ReadParameters(params)
-        {
-            this._X = this.addTensor("X", tf.input({shape: [params.InputSize,  1]}));
-            this._Y = this.addTensor("Y", tf.input({shape: [params.OutputSize, 1]}));
-        }
-    }
-
     window.MANN = MANN;
 
 })();"use strict";
@@ -1496,207 +1743,197 @@ class NNMath
  * CHECK ALL ABOUT SPLINE IF ITS CORRECT
  */
 
-/**
-       public GameObject Character;
-       public BezierSpline Spline;
+(function () {
 
-       public string RootEffector = "Hips";
-       public float PathDuration = 10f;
-       public bool RealTime = false;
-       //public bool TargetVelocity = false;
-       public int MinSpeedFactor = 50;
-       public int MaxSpeedFactor = 170;
-       public bool EnableGUISlider = true;
-
-
-       public int SpeedFactor = 100;
-       private const int InitialFrames = 120;
-       private int InitialFramesCnt = InitialFrames;
-
-       private List<Transform> Transforms = new List<Transform>();
-       private MANNController NNController;
-       private bool Initialised = false;
-       private Vector3 Direction;
-               private class PoseTransform
-       {
-           public Vector3 position;
-           public Quaternion rotation;
-           public PoseTransform(Vector3 pos, Quaternion rot)
-           {
-               position = pos;
-               rotation = rot;
-           }
-       }
-       private PoseTransform[] InitialPose;
-
-       private float Progress;
-       private GUIStyle SliderStyle;
-       private GUIStyle FontStyle;
-       private GUIStyle ThumbStyle;
-       private bool ShowGUI = true;
- */
-class PoseTransform {
-    constructor(pos, rot) {
-        this.position = pow || vec3.create();
-        this.rotation = rot || quat.create();
-    }
-}
-
-class NNCharController {
-    constructor(o) {
-        // /*public GameObject      */ this.Character;
-        // /*public BezierSpline    */ this.Spline;
-        // /*public string          */ this.RootEffector = "Hips";
-        // /*public float           */ this.PathDuration = 10;
-        // /*public bool            */ this.RealTime = false;
-        // /*public int             */ this.MinSpeedFactor = 50;
-        // /*public int             */ this.MaxSpeedFactor = 170;
-        // /*public bool            */ this.EnableGUISlider = true;
-        // /*public int             */ this.SpeedFactor = 100;
-        // /*private const int      */ this._InitialFrames = 120;
-        // /*private int            */ this._InitialFramesCnt = InitialFrames;
-        // /*private List<Transform>*/ this._Transforms = [];//new List<Transform>();
-        // /*private MANNController */ this._NNController;
-        // /*private bool           */ this._Initialised = false;
-        // /*private Vector3        */ this._Direction = vec3.create();
-        // /*private PoseTransform[]*/ this._InitialPose;
-        // /*private float          */ this._Progress;
-        // /*private GUIStyle       */ this._SliderStyle;
-        // /*private GUIStyle       */ this._FontStyle;
-        // /*private GUIStyle       */ this._ThumbStyle;
-        // /*private bool           */ this._ShowGUI = true;
-
-
-        this.root_id = "";
-        this.spline_id = "";
-        this.speed = 5;
-        this.trajectory_position  = vec3.create();
-        this.trajectory_direction = vec3.create();
-        this.mann_parameters_file = "";
-        
-        this._MANN = new MANNController();
-        this.configure(o);
-    }
-
-    configure(o){
-        o = o || {};
-
-        //Asign configuration object data to current instance container
-        Object.assign(this, o);
-
-        if(this.mann_parameters_file && this.mann_parameters_file.length > 0){
-            this._MANN.mann_parameters_file = o.mann_parameters_file;
-        }
-    }
-
-    serialize(){
-        let data = {};
-
-        [
-            "root_id",
-            "spline_id",
-            "speed",
-            "mann_parameters_file"
-        ].map( x => data[x] = this[x] );
-        
-        return data;
-    }
-
-    onStart() {        
-        if (!this._MANN) {
-            console.error("NN not loaded")
-            return;
-        }
-
-        this.ratio = 0;
-
-        //Get the spline points
-        //https://math.stackexchange.com/questions/2154029/how-to-calculate-a-splines-length-from-its-control-points-and-knots-vector
-        this._spline_length = 0;
-        {
-            this._spline_node =  LS.GlobalScene._root.findNodeByUId(this.spline_id);
-            if(!this._spline_node) return;
-            this._spline = this._spline_node.getComponent(LS.Components.Spline);
-            var a = this._spline.path.points[0];
-            for (var i = 1; i < this._spline.path.points.length; ++i) {
-                var b = this._spline.path.points[i];
-                this._spline_length += vec3.distance(a, b);
-                a = b;
-            }
-        }
-
-        //Get the skeleton transforms
-        {
-            this._root_node =  LS.GlobalScene._root.findNodeByUId(this.root_id);
-            if(!this._root_node) return;
-            this.reverse_mapping_nodes = {};
-            this.skeleton_transforms = [this._root_node];
-            if (this._root_node && this._root_node.constructor.name == "SceneNode") {
-                this.skeleton_transforms = this.skeleton_transforms.concat(this._root_node.getDescendants());
-                for (let i = 0; i < this.skeleton_transforms.length; ++i)
-                    this.reverse_mapping_nodes[this.skeleton_transforms[i].name] = i;
-            }
-
-            if (!this.skeleton_transforms || this.skeleton_transforms.length <= 1)
-                throw ("skeleton transforms not found");
-        }
-
-        //todo:this has to be checked coz i modified
-        this._MANN.setSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
-        this._MANN.setCurrentPoseAsInitial();
-    }
-
+    /**
+           public GameObject Character;
+           public BezierSpline Spline;
     
-    onUpdate(dt) {
-        if (!this._MANN || !this._spline) {
-            console.error("NN not loaded")
-            return;
+           public string RootEffector = "Hips";
+           public float PathDuration = 10f;
+           public bool RealTime = false;
+           //public bool TargetVelocity = false;
+           public int MinSpeedFactor = 50;
+           public int MaxSpeedFactor = 170;
+           public bool EnableGUISlider = true;
+    
+    
+           public int SpeedFactor = 100;
+           private const int InitialFrames = 120;
+           private int InitialFramesCnt = InitialFrames;
+    
+           private List<Transform> Transforms = new List<Transform>();
+           private MANNController NNController;
+           private bool Initialised = false;
+           private Vector3 Direction;
+                   private class PoseTransform
+           {
+               public Vector3 position;
+               public Quaternion rotation;
+               public PoseTransform(Vector3 pos, Quaternion rot)
+               {
+                   position = pos;
+                   rotation = rot;
+               }
+           }
+           private PoseTransform[] InitialPose;
+    
+           private float Progress;
+           private GUIStyle SliderStyle;
+           private GUIStyle FontStyle;
+           private GUIStyle ThumbStyle;
+           private bool ShowGUI = true;
+     */
+    class PoseTransform {
+        constructor(pos, rot) {
+            this.position = pow || vec3.create();
+            this.rotation = rot || quat.create();
         }
-
-        var v = (this.speed * dt) / this._spline_length;
-        this.ratio += Math.max(0,Math.min(1,v));
-        
-        this._spline.getPoint(this.ratio, this.trajectory_position);
-        //Get direction from a given ratio, be sure that the spline has at least four points if its bezier and two if its hermite
-        {
-            var a = this._spline.getPoint(Math.max(0, this.ratio - 0.01));
-            var b = this._spline.getPoint(Math.min(1, this.ratio + 0.01));
-            vec3.sub(this.trajectory_direction, a, b);
-            vec3.normalize(this.trajectory_direction, this.trajectory_direction);
-        }
-
-        this._MANN.setTargetPositionAndDirection(this.trajectory_position, this.trajectory_direction);
-        this._MANN.RunControl();
-        this.AnimateTransforms();
     }
 
-    AnimateTransforms() {
-        let transforms = this._MANN.getCurrentTransforms();
+    class NNCharController {
+        constructor(o) {
+            // /*public GameObject      */ this.Character;
+            // /*public BezierSpline    */ this.Spline;
+            // /*public string          */ this.RootEffector = "Hips";
+            // /*public float           */ this.PathDuration = 10;
+            // /*public bool            */ this.RealTime = false;
+            // /*public int             */ this.MinSpeedFactor = 50;
+            // /*public int             */ this.MaxSpeedFactor = 170;
+            // /*public bool            */ this.EnableGUISlider = true;
+            // /*public int             */ this.SpeedFactor = 100;
+            // /*private const int      */ this._InitialFrames = 120;
+            // /*private int            */ this._InitialFramesCnt = InitialFrames;
+            // /*private List<Transform>*/ this._Transforms = [];//new List<Transform>();
+            // /*private MANNController */ this._NNController;
+            // /*private bool           */ this._Initialised = false;
+            // /*private Vector3        */ this._Direction = vec3.create();
+            // /*private PoseTransform[]*/ this._InitialPose;
+            // /*private float          */ this._Progress;
+            // /*private GUIStyle       */ this._SliderStyle;
+            // /*private GUIStyle       */ this._FontStyle;
+            // /*private GUIStyle       */ this._ThumbStyle;
+            // /*private bool           */ this._ShowGUI = true;
 
-        for (let t of transforms) {
-            //todo: needs to be implemented
-            let node = reverse_mapping_nodes[t.name];// rootNode.findNodeByName(t.name);
-            node.transform = t.transform.clone();
+
+            this.root_id = "";
+            this.spline_id = "";
+            this.speed = 5;
+            this.trajectory_position = vec3.create();
+            this.trajectory_direction = vec3.create();
+            this.mann_parameters_file = "";
+
+            this._MANN = new MANNController();
+            this.configure(o);
+        }
+
+        configure(o) {
+            o = o || {};
+
+            //Asign configuration object data to current instance container
+            Object.assign(this, o);
+
+            if (this.mann_parameters_file && this.mann_parameters_file.length > 0) {
+                this._MANN.mann_parameters_file = o.mann_parameters_file;
+            }
+        }
+
+        serialize() {
+            let data = {};
+
+            [
+                "root_id",
+                "spline_id",
+                "speed",
+                "mann_parameters_file"
+            ].map(x => data[x] = this[x]);
+
+            return data;
+        }
+
+        onStart() {
+            if (!this._MANN) {
+                console.error("NN not loaded")
+                return;
+            }
+
+            this.ratio = 0;
+
+            //Get the spline points
+            //https://math.stackexchange.com/questions/2154029/how-to-calculate-a-splines-length-from-its-control-points-and-knots-vector
+            this._spline_length = 0;
+            {
+                this._spline_node = LS.GlobalScene._root.findNodeByUId(this.spline_id);
+                if (!this._spline_node) return;
+                this._spline = this._spline_node.getComponent(LS.Components.Spline);
+                var a = this._spline.path.points[0];
+                for (var i = 1; i < this._spline.path.points.length; ++i) {
+                    var b = this._spline.path.points[i];
+                    this._spline_length += vec3.distance(a, b);
+                    a = b;
+                }
+            }
+
+            //Get the skeleton transforms
+            {
+                this._root_node = LS.GlobalScene._root.findNodeByUId(this.root_id);
+                if (!this._root_node) return;
+                this.reverse_mapping_nodes = {};
+                this.skeleton_transforms = [this._root_node];
+                if (this._root_node && this._root_node.constructor.name == "SceneNode") {
+                    this.skeleton_transforms = this.skeleton_transforms.concat(this._root_node.getDescendants());
+                    for (let i = 0; i < this.skeleton_transforms.length; ++i)
+                        this.reverse_mapping_nodes[this.skeleton_transforms[i].name] = i;
+                }
+
+                if (!this.skeleton_transforms || this.skeleton_transforms.length <= 1)
+                    throw ("skeleton transforms not found");
+            }
+
+            //todo:this has to be checked coz i modified
+            this._MANN.setSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
+            this._MANN.setCurrentPoseAsInitial();
+        }
+
+
+        onUpdate(dt) {
+            if (!this._MANN || !this._spline) {
+                console.error("NN not loaded")
+                return;
+            }
+
+            var v = (this.speed * dt) / this._spline_length;
+            this.ratio += Math.max(0, Math.min(1, v));
+
+            this._spline.getPoint(this.ratio, this.trajectory_position);
+            //Get direction from a given ratio, be sure that the spline has at least four points if its bezier and two if its hermite
+            {
+                var a = this._spline.getPoint(Math.max(0, this.ratio - 0.01));
+                var b = this._spline.getPoint(Math.min(1, this.ratio + 0.01));
+                vec3.sub(this.trajectory_direction, a, b);
+                vec3.normalize(this.trajectory_direction, this.trajectory_direction);
+            }
+
+            this._MANN.setTargetPositionAndDirection(this.trajectory_position, this.trajectory_direction);
+            this._MANN.RunControl();
+            this.AnimateTransforms();
+        }
+
+        AnimateTransforms() {
+            let transforms = this._MANN.getCurrentTransforms();
+
+            for (let t of transforms) {
+                //todo: needs to be implemented
+                let node = reverse_mapping_nodes[t.name];// rootNode.findNodeByName(t.name);
+                node.transform = t.transform.clone();
+            }
         }
     }
 
+    window.NNCharController = NNCharController;
 
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-(function(window){
+})();
+(function(){
 
     "use strict";
 
@@ -1766,7 +2003,7 @@ class NNCharController {
   ╚═════╝ ╚═════╝ ╚═╝     ╚═╝╚═╝      ╚═════╝ ╚═╝  ╚═══╝╚══════╝╚═╝  ╚═══╝   ╚═╝   
                                                                                 
 */
-(function(window){
+(function(){
 
     "use strict";
 
