@@ -55,6 +55,7 @@
                 }
             }
         }
+
         /**
          * Creates a tensor
          * @param {*} a 

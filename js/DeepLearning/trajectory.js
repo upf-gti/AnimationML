@@ -245,8 +245,10 @@
          *  @return {quat} 
          */
         GetRotation() {
-            //return Matrix4x4Extensions.GetQuaternion(this._Transformation);
-            return quat.fromMat4(quat.create(), this._Transformation);
+            return quat.fromMat3AndQuat(
+                quat.create(), 
+                mat3.fromMat4(mat3.create(), this._Transformation)
+            );
         }
 
         /**
