@@ -100,7 +100,7 @@
             this.trajectory_direction = vec3.create();
             this.mann_parameters_file = "";
 
-            this._MANN = new MANNController();
+            this._NNController = new MANNController();
             this.configure(o);
         }
 
@@ -110,8 +110,12 @@
             //Asign configuration object data to current instance container
             Object.assign(this, o);
 
-            if (this.mann_parameters_file && this.mann_parameters_file.length > 0) {
-                this._MANN.mann_parameters_file = o.mann_parameters_file;
+            if(this.mann_parameters_file )
+            {
+                if(!this.loadMANN)
+                    throw("you have to custom define a method loadMANN in the prototype that from a given path retuns a MANN instance");
+
+                this._NNController._NN = await this.loadMANN(this.mann_parameters_file);
             }
         }
 
@@ -129,7 +133,8 @@
         }
 
         onStart() {
-            if (!this._MANN) {
+            
+            if (!this._NNController._NN) {
                 console.error("NN not loaded")
                 return;
             }
@@ -168,13 +173,13 @@
             }
 
             //todo:this has to be checked coz i modified
-            this._MANN.setSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
-            this._MANN.setCurrentPoseAsInitial();
+            this._NNController.setSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
+            this._NNController.setCurrentPoseAsInitial();
         }
 
 
         onUpdate(dt) {
-            if (!this._MANN || !this._spline) {
+            if (!this._NNController || !this._spline) {
                 console.error("NN not loaded")
                 return;
             }
@@ -191,13 +196,13 @@
                 vec3.normalize(this.trajectory_direction, this.trajectory_direction);
             }
 
-            this._MANN.setTargetPositionAndDirection(this.trajectory_position, this.trajectory_direction);
-            this._MANN.RunControl();
+            this._NNController.setTargetPositionAndDirection(this.trajectory_position, this.trajectory_direction);
+            this._NNController.RunControl();
             this.AnimateTransforms();
         }
 
         AnimateTransforms() {
-            let transforms = this._MANN.getCurrentTransforms();
+            let transforms = this._NNController.getCurrentTransforms();
 
             for (let t of transforms) {
                 //todo: needs to be implemented

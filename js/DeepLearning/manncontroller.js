@@ -92,14 +92,14 @@
          */
         Init() {
             //TODO: REVISIT THIS
-            if (MANNController.CONSTRUCT_MANN) {
+            /*if (MANNController.CONSTRUCT_MANN) {
                 if (this.NNParametersFile != null) {
                     if (this._NN == null)
                         this._NN = new MANN();
                     this._NN.ReadParameters(this.NNParametersFile);
                     this._NNParameters = this._NN.Parameters;
                 }
-            }
+            }*/
         }
         
         /**
@@ -110,19 +110,19 @@
         Setup(xforms){
             //Construct MANN
             {
-                if (this.NNParametersFile != null) {
+                /*if (this.NNParametersFile != null) {
                     if (this._NN == null) {
                         this._NN = new MANN();
                         this._NNParameters = null;
                     }
                     if (this._NNParameters == null) {
                         this._NN.ReadParameters(this.NNParametersFile);
-                        this._NNParameters = this._NN.Parameters;
+                        this._NN.Parameters = this._NN.Parameters;
                     }
                 }
                 else {
                     return false;
-                }
+                }*/
             }
 
             //NN.LoadParameters();

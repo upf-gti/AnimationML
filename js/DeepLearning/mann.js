@@ -231,7 +231,7 @@
         }
 
         StoreParameters(){
-            throw("Not Implemented");
+            return this.Parameters;
         }
 
     }

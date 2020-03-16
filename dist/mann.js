@@ -1698,7 +1698,7 @@ if(!DEG2RAD)
         }
 
         StoreParameters(){
-            throw("Not Implemented");
+            return this.Parameters;
         }
 
     }
@@ -1818,14 +1818,14 @@ if(!DEG2RAD)
          */
         Init() {
             //TODO: REVISIT THIS
-            if (MANNController.CONSTRUCT_MANN) {
+            /*if (MANNController.CONSTRUCT_MANN) {
                 if (this.NNParametersFile != null) {
                     if (this._NN == null)
                         this._NN = new MANN();
                     this._NN.ReadParameters(this.NNParametersFile);
                     this._NNParameters = this._NN.Parameters;
                 }
-            }
+            }*/
         }
         
         /**
@@ -1836,19 +1836,19 @@ if(!DEG2RAD)
         Setup(xforms){
             //Construct MANN
             {
-                if (this.NNParametersFile != null) {
+                /*if (this.NNParametersFile != null) {
                     if (this._NN == null) {
                         this._NN = new MANN();
                         this._NNParameters = null;
                     }
                     if (this._NNParameters == null) {
                         this._NN.ReadParameters(this.NNParametersFile);
-                        this._NNParameters = this._NN.Parameters;
+                        this._NN.Parameters = this._NN.Parameters;
                     }
                 }
                 else {
                     return false;
-                }
+                }*/
             }
 
             //NN.LoadParameters();
@@ -3144,6 +3144,45 @@ if(!DEG2RAD)
 
 (function () {
 
+    /**
+           public GameObject Character;
+           public BezierSpline Spline;
+    
+           public string RootEffector = "Hips";
+           public float PathDuration = 10f;
+           public bool RealTime = false;
+           //public bool TargetVelocity = false;
+           public int MinSpeedFactor = 50;
+           public int MaxSpeedFactor = 170;
+           public bool EnableGUISlider = true;
+    
+    
+           public int SpeedFactor = 100;
+           private const int InitialFrames = 120;
+           private int InitialFramesCnt = InitialFrames;
+    
+           private List<Transform> Transforms = new List<Transform>();
+           private MANNController NNController;
+           private bool Initialised = false;
+           private Vector3 Direction;
+                   private class PoseTransform
+           {
+               public Vector3 position;
+               public Quaternion rotation;
+               public PoseTransform(Vector3 pos, Quaternion rot)
+               {
+                   position = pos;
+                   rotation = rot;
+               }
+           }
+           private PoseTransform[] InitialPose;
+    
+           private float Progress;
+           private GUIStyle SliderStyle;
+           private GUIStyle FontStyle;
+           private GUIStyle ThumbStyle;
+           private bool ShowGUI = true;
+     */
     class PoseTransform {
         constructor(pos, rot) {
             this.position = pow || vec3.create();
@@ -3183,7 +3222,7 @@ if(!DEG2RAD)
             this.trajectory_direction = vec3.create();
             this.mann_parameters_file = "";
 
-            this._MANN = new MANNController();
+            this._NNController = new MANNController();
             this.configure(o);
         }
 
@@ -3193,8 +3232,12 @@ if(!DEG2RAD)
             //Asign configuration object data to current instance container
             Object.assign(this, o);
 
-            if (this.mann_parameters_file && this.mann_parameters_file.length > 0) {
-                this._MANN.mann_parameters_file = o.mann_parameters_file;
+            if(this.mann_parameters_file )
+            {
+                if(!this.loadMANN)
+                    throw("you have to custom define a method loadMANN in the prototype that from a given path retuns a MANN instance");
+
+                this._NNController._NN = await this.loadMANN(this.mann_parameters_file);
             }
         }
 
@@ -3211,8 +3254,9 @@ if(!DEG2RAD)
             return data;
         }
 
-        onStart() {           
-            if (!this._MANN) {
+        onStart() {
+            
+            if (!this._NNController._NN) {
                 console.error("NN not loaded")
                 return;
             }
@@ -3251,13 +3295,13 @@ if(!DEG2RAD)
             }
 
             //todo:this has to be checked coz i modified
-            this._MANN.setSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
-            this._MANN.setCurrentPoseAsInitial();
+            this._NNController.setSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
+            this._NNController.setCurrentPoseAsInitial();
         }
 
 
         onUpdate(dt) {
-            if (!this._MANN || !this._spline) {
+            if (!this._NNController || !this._spline) {
                 console.error("NN not loaded")
                 return;
             }
@@ -3274,13 +3318,13 @@ if(!DEG2RAD)
                 vec3.normalize(this.trajectory_direction, this.trajectory_direction);
             }
 
-            this._MANN.setTargetPositionAndDirection(this.trajectory_position, this.trajectory_direction);
-            this._MANN.RunControl();
+            this._NNController.setTargetPositionAndDirection(this.trajectory_position, this.trajectory_direction);
+            this._NNController.RunControl();
             this.AnimateTransforms();
         }
 
         AnimateTransforms() {
-            let transforms = this._MANN.getCurrentTransforms();
+            let transforms = this._NNController.getCurrentTransforms();
 
             for (let t of transforms) {
                 //todo: needs to be implemented
@@ -3288,9 +3332,6 @@ if(!DEG2RAD)
                 node.transform = t.transform.clone();
             }
         }
-
-        ControlByPath(){}
-        ControlByGamePad(){}
     }
 
     window.NNCharController = NNCharController;
@@ -3380,6 +3421,21 @@ if(!DEG2RAD)
     NNCharController.prototype.onRemovedFromScene = function(scene) {
         LEvent.unbindAll(scene, this);
     }
+
+    NNCharController.prototype.LoadResource = async function(path){
+      var promise = new Promise(function(resolve,reject){
+        LS.ResourcesManager.load(path, (function(res) {
+          console.assert( res, `Resource is empty`, window.DEBUG);
+          resolve(res);
+        }).bind(this));   
+      }); 
+
+      var NN = await promise();
+      if(!NN)
+        throw "NN not loaded properly";
+      return NN;
+    }
+
 
     NNCharController["@mann_filename"]  = { widget: "resource", resource_classname: "MANN" };
     NNCharController["@root_id"]        = { widget: "node_id" };
