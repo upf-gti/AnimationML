@@ -63,7 +63,7 @@
      */
     class PoseTransform {
         constructor(pos, rot) {
-            this.position = pow || vec3.create();
+            this.position = pos || vec3.create();
             this.rotation = rot || quat.create();
         }
     }
@@ -98,24 +98,24 @@
             this.speed = 5;
             this.trajectory_position = vec3.create();
             this.trajectory_direction = vec3.create();
-            this.mann_parameters_file = "";
+            this.mann_filename = "";
 
             this._NNController = new MANNController();
             this.configure(o);
         }
 
-        configure(o) {
+        async configure(o) {
             o = o || {};
 
             //Asign configuration object data to current instance container
             Object.assign(this, o);
 
-            if(this.mann_parameters_file )
+            if(this.mann_filename )
             {
                 if(!this.loadMANN)
                     throw("you have to custom define a method loadMANN in the prototype that from a given path retuns a MANN instance");
 
-                this._NNController._NN = await this.loadMANN(this.mann_parameters_file);
+                this.loadMANN(this.mann_filename, NN => this._NNController._NN = NN);
             }
         }
 
@@ -126,17 +126,27 @@
                 "root_id",
                 "spline_id",
                 "speed",
-                "mann_parameters_file"
+                "mann_filename"
             ].map(x => data[x] = this[x]);
 
             return data;
         }
 
-        onStart() {
+        async onStart() {
             
             if (!this._NNController._NN) {
-                console.error("NN not loaded")
-                return;
+                if(this.mann_filename )
+                {
+                    if(!this.loadMANN)
+                        throw("you have to custom define a method loadMANN in the prototype that from a given path retuns a MANN instance");
+
+                    this.loadMANN(this.mann_filename, NN => {this._NNController._NN = NN; this.onStart();});
+                    return;
+                }
+                else{
+                    console.error("NN not loaded")
+                    return;
+                }
             }
 
             this.ratio = 0;
@@ -145,7 +155,8 @@
             //https://math.stackexchange.com/questions/2154029/how-to-calculate-a-splines-length-from-its-control-points-and-knots-vector
             this._spline_length = 0;
             {
-                this._spline_node = LS.GlobalScene._root.findNodeByUId(this.spline_id);
+                //this._spline_node = LS.GlobalScene._root.findNodeByUId(this.spline_id);
+                this._spline_node = LS.GlobalScene.getNode( this.spline_id );
                 if (!this._spline_node) return;
                 this._spline = this._spline_node.getComponent(LS.Components.Spline);
                 var a = this._spline.path.points[0];
@@ -158,7 +169,8 @@
 
             //Get the skeleton transforms
             {
-                this._root_node = LS.GlobalScene._root.findNodeByUId(this.root_id);
+                //this._root_node = LS.GlobalScene._root.findNodeByUId(this.root_id);
+                this._root_node = LS.GlobalScene.getNode( this.root_id );
                 if (!this._root_node) return;
                 this.reverse_mapping_nodes = {};
                 this.skeleton_transforms = [this._root_node];
@@ -172,17 +184,43 @@
                     throw ("skeleton transforms not found");
             }
 
-            //todo:this has to be checked coz i modified
-            this._NNController.setSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
-            this._NNController.setCurrentPoseAsInitial();
+            //Get ordered transforms
+            let ordered_transforms = [];
+            {
+                for (let i = 0; i < this._NNController.GetNumberOfBones(); ++i){
+                    let boneName = this._NNController.GetBoneName(i);
+                    //let index = skeleton_transforms.findIndex(x => x.name == boneName);
+                    let index = this.reverse_mapping_nodes[boneName];
+                    let t = this.skeleton_transforms[index];
+                    if(!t)  throw `Bone ${boneName} not present in target skeleton!`;
+                    else    ordered_transforms.push(t);
+                }
+            }
+
+            this._Transforms = ordered_transforms.map(x=>x.transform.matrix);//Array.from(ordered_transforms);
+            this._initialized = this._NNController.Setup(this._Transforms);
+            //let index = findIndex(x => x.name == RootEffector);
+            this._NNController.RootEffector = 0;//????
+            
+            
+            //Set Initial Pose
+            {
+                this._InitialPose = [];
+                for (let i = 0; i < this._Transforms.length; ++i){
+                    let position = mat4.getTranslation(vec3.create(), this._Transforms[i]);
+                    let rotation = quat.fromMat3AndQuat(quat.create(), mat3.fromMat4(mat3.create(), this._Transforms[i]));
+                    this._InitialPose[i] = new PoseTransform(position, rotation);
+                }
+            }
+            //todo:this has to be checked coz i added
+            //this._NNController.SetSkeletonTransforms(this.skeleton_transforms, this._root_node.name);
+            //this._NNController.SetCurrentPoseAsInitial();
         }
 
 
-        onUpdate(dt) {
-            if (!this._NNController || !this._spline) {
-                console.error("NN not loaded")
+        onUpdate(name, dt) {
+            if(!this._initialized) 
                 return;
-            }
 
             var v = (this.speed * dt) / this._spline_length;
             this.ratio += Math.max(0, Math.min(1, v));
@@ -204,10 +242,11 @@
         AnimateTransforms() {
             let transforms = this._NNController.getCurrentTransforms();
 
-            for (let t of transforms) {
+            for (let i of transforms) {
                 //todo: needs to be implemented
-                let node = reverse_mapping_nodes[t.name];// rootNode.findNodeByName(t.name);
-                node.transform = t.transform.clone();
+                this.skeleton_transforms[i].transform.applyTransformMatrix( transforms[i]);
+                //let node = this.reverse_mapping_nodes[t.name];// rootNode.findNodeByName(t.name);
+                //node.transform = t.transform.clone();
             }
         }
     }

@@ -63,7 +63,7 @@
          * @param {*} c 
          */
         CreateTensor(ID, b, c) {
-            return (c.constructor.name == "Number") ? CreateTensorWH(ID, b, c) : CreateTensorM(ID, b);
+            return (c) ? this.CreateTensorWH(ID, b, c) : this.CreateTensorM(ID, b);
         }
 
         /**
@@ -79,7 +79,7 @@
                 return null;
             }
 
-            let T = new Tensor(rows, cols);
+            let T = new Tensor(id, rows, cols);
 
             T.id = id;
             this._tensors[id] = T;
@@ -99,10 +99,10 @@
                 return null;
             }
 
-            let T = new Tensor(rows, cols);
+            let T = new Tensor(id, matrix.Rows, matrix.Cols);
             for (let x = 0; x < matrix.Rows; ++x)
                 for (let y = 0; y < matrix.Cols; ++y) {
-                    var index = T.locToIndex([x, y]);
+                    //var index = T.locToIndex([x, y]);
                     T.SetValue(x, y, matrix.Values[x].Values[y]);
                 }
 
@@ -139,7 +139,6 @@
         }
 
         /**
-         * TODO: copy or reference?
          * @param {Tensor} IN 
          * @param {Tensor} mean 
          * @param {Tensor} std 
@@ -150,6 +149,12 @@
             //throw("Not Implemented");
 
             //Eigen.Normalise(IN.id, mean.id, std.id, OUT.id);
+            if(
+                IN.GetRows() != OUT.GetRows() ||
+                IN.GetCols() != OUT.GetCols()
+            ){
+                OUT.Fit(IN);
+            }
 
             // JS implementation:
             // OUT = (IN - mean) / std
@@ -159,23 +164,20 @@
             let outM = OUT.GetMatrix();
 
             for (let i = 0; i < inM.length; i++)
-                for (let j = 0; j < inM[i].length; j++) // should be one column
-                {
-                    let temp = inM[i][j] - meanM[i][j];
-                    let stdv = stdM[i][j];
-                    if (stdv !== 0)
-                        outM[i][j] = temp / stdv;
-                    else
-                        outM[i][j] = temp;
-                }
+            for (let j = 0; j < inM[i].length; j++) // should be one column
+            {
+                let temp = inM[i][j] - meanM[i][j];
+                let stdv = stdM[i][j];
+                if (stdv !== 0)
+                    outM[i][j] = temp / stdv;
+                else
+                    outM[i][j] = temp;
+            }
 
-
-            //return OUT;
+            return OUT;
         }
 
         /**
-         * TODO: copy or reference?
-         * TODO: What is the difference between this and normalise?
          * @param {Tensor} IN 
          * @param {Tensor} mean 
          * @param {Tensor} std 
@@ -183,8 +185,6 @@
          * @return {Tensor} OUT
          */
         Renormalise(IN, mean, std, OUT) {
-            //throw("Not Implemented");
-
             //Eigen.Renormalise(IN.id, mean.id, std.id, OUT.id);
 
             // JS implementation:
@@ -198,11 +198,10 @@
                 for (let j = 0; j < inM[i].length; j++) // should be one column
                     outM[i][j] = inM[i][j] * stdM[i][j] + meanM[i][j];
 
-            //return OUT;
+            return OUT;
         }
 
         /**
-         * TODO: What this does?
          * @param {Tensor} IN 
          * @param {Tensor} W 
          * @param {Tensor} b 
@@ -210,12 +209,17 @@
          * @return {Tensor} OUT
          */
         Layer(IN, W, b, OUT) {
-            //throw("Not Implemented");
 
             //Eigen.Layer(IN.id, W.id, b.id, OUT.id);
 
             // JS implementation:
             // OUT = W * IN + b
+            if(
+                IN.GetRows() != OUT.GetRows() ||
+                IN.GetCols() != OUT.GetCols()
+            ){
+                OUT.Fit(IN);
+            }
 
             let inM = IN.GetMatrix();
             let wM = W.GetMatrix();

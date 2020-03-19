@@ -21,8 +21,8 @@
             this._transforms            = [];
             this._initial_pose          = [];
 
-            this.NNParametersFile       = null;                 //public string 
-            this._NNParameters          = null;                 //private MANNParameters 
+            //this.NNParametersFile       = null;                 //public string 
+            //this._NNParameters          = null;                 //private MANNParameters 
             this._NumBones              = 0;                    //private int 
             this._NN                    = null;                 //private MANN 
             this._NumStyles             = 0;                    //private int 
@@ -82,8 +82,6 @@
             this._TransitionTime        = 0;                    //(470f - 90f) / Framerate / 7f; //private float           
             this._AnimationStyle        = [];                   //private float[][]    
         }
-        configure(o){}
-        serialize(){}
 
         /**
          * this is to be called by Awake of the client script so that network 
@@ -150,23 +148,24 @@
             this._TrajOrientType    = this._NN.Parameters.TrajectoryOrientationType;
 
             let numPoints = (this._InputSamples - 1) * this._PointDensity + 1;
-            let trajBone  = this._NN.Parameters.BoneNames[this._NN.Parameters.RootEffector];
-            let index     = xforms.findIndex(x => x.name == trajBone);
-            if (index < 0)
-                throw ("Bone name " + trajBone + " not found!");
+            //let trajBone  = this._NN.Parameters.BoneNames[this._NN.Parameters.RootEffector];
+            //let index     = xforms.findIndex(x => x.name == trajBone);
+            //if (index < 0)
+            //   throw ("Bone name " + trajBone + " not found!");
+            let index = 0;
 
-            let initPosition  = mat4.getTranslation(vec3.create(), xforms[index]);
+            let trajTrf = xforms[index];
+
+            let initPosition  = mat4.getTranslation(vec3.create(), trajTrf);
             let initRotation  = quat.create();
             let initDirection = vec3.create();
+
+           
 
             switch (this._TrajOrientType) {
                 case MANN.OrientType.FLAT_Y_UP:
                     initPosition [1] = 0;
-                    let rotation = quat.fromMat3AndQuat(
-                        quat.create(),
-                        mat3.fromMat4(mat3.create(),  trajTrf)
-                    );
-                    initDirection = vec3.transformQuat(initDirection, rotation, vec3.FRONT);
+                    mat4.rotateVec3(initDirection,trajTrf, vec3.FRONT);
                     initDirection[1] = 0;
                     vec3.normalize(initDirection, initDirection);
                     quat.lookRotation(initRotation, initRotation, vec3.UP);
@@ -193,15 +192,18 @@
             
             for (let i = 0; i < this._NumBones; ++i)
             {
-                index = xforms.findIndex(x => x.name == this._NN.Parameters.BoneNames[i]);
-                if (index < 0)
-                    throw ("Bone name " + this._NN.Parameters.BoneNames[i] + " not found!");
-
-                    this._PoseTransforms[i] = mat4.fromQuat(mat4.create(), quat.lookRotation(quat.create(), xforms[index].getFront(), xforms[index].getTop()) );
-                    mat4.setTranslation(this._PoseTransforms[i], xforms[index].position);
+                //index = xforms.findIndex(x => x.name == this._NN.Parameters.BoneNames[i]);
+                //if (index < 0)
+                //    throw ("Bone name " + this._NN.Parameters.BoneNames[i] + " not found!");
+                    let top      = mat4.rotateVec3(vec3.create(), xforms[index], vec3.UP);     // xforms[index].getFront();
+                    let front    = mat4.rotateVec3(vec3.create(), xforms[index], vec3.FRONT);  //xforms[index].getTop();
+                    let position = mat4.getTranslation(vec3.create(), xforms[index]);
+                    
+                    this._PoseTransforms[i]    = mat4.fromQuat(mat4.create(), quat.lookRotation(quat.create(), front, top) );
+                    mat4.setTranslation(this._PoseTransforms[i], position);
         
                     this._Velocities     [i] = vec3.clone(vec3.ZERO);
-                    this._EffectorTargets[i] = mat4.getTranslation(vec3.create(),xforms[index]);
+                    this._EffectorTargets[i] = position;
             }
 
             if (this.EEControl)
@@ -376,7 +378,7 @@
             this._TargetVelocity = vec3.add(vec3.create(), currVel, velUpdate);
 
             // write future trajectory
-            let pos0 = mat4.getTranslation(vec3.create(), this._Trajectory.Points[this._InputPoint]);// + posUpdate;
+            let pos0 = mat4.getTranslation(vec3.create(), this._Trajectory.Points[this._InputPoint]._Transformation);// + posUpdate;
             let pointDistance = vec3.length(this._TargetVelocity) * ts;
             for (let i = this._InputPoint; i < this._Trajectory.Points.length; i += this._PointDensity) {
                 let point = this._Trajectory.Points[i];
@@ -439,9 +441,9 @@
 
             // Input Previous Bone Positions / Velocities
             for (let i = 0; i < this._NumBones; ++i) {
-                let q = quat.fromMat3AndQuat(quat.create(), mat3.fromMat4(mat3.create(), this._PoseTransforms[i]));
-                let front = vec3.transformQuat(out || vec3.create(), Transform.FRONT, q );
-                let top   = vec3.transformQuat(out || vec3.create(), Transform.UP,    q );
+                let q     = quat.fromMat3AndQuat(quat.create(), mat3.fromMat4(mat3.create(), this._PoseTransforms[i]));
+                let front = mat4.rotateVec3(vec3.create(), this._PoseTransforms[i], vec3.FRONT);
+                let top   = mat4.rotateVec3(vec3.create(),    this._PoseTransforms[i], vec3.UP);
                 mat4.multiplyPoint(pos,     fromWorld, mat4.getTranslation(vec3.create(), this._PoseTransforms[i]));
                 mat4.multiplyPoint(forward, fromWorld, front);
                 mat4.multiplyPoint(up,      fromWorld, top);
@@ -523,7 +525,7 @@
                         this._NN.GetOutput(idx++)
                 ));
 
-                mat4.multiplyVec3(
+                mat4.rotateVec3(
                     forward,
                     currentRoot,
                     vec3.fromValues(
@@ -532,7 +534,7 @@
                         this._NN.GetOutput(idx++)
                 ));
 
-                mat4.multiplyVec3(
+                mat4.rotateVec3(
                     up,
                     currentRoot,
                     vec3.fromValues(
@@ -543,7 +545,7 @@
 
                 mat4.fromQuat(this._PoseTransforms[i], quat.lookRotation(quat.create(), forward, up));
 
-                mat4.multiplyVec3(
+                mat4.rotateVec3(
                     vel, 
                     curentRoot, 
                     vec3.fromValues(
@@ -577,8 +579,8 @@
         GetNetworkPredictionTime(){
             let v = this._NetworkPredictionTime;
 
-            console.assert(!isNaN(v), "prediction time is NaN", window.DEBUG);
-            console.assert(v >= 0, "prediction time is negative", window.DEBUG);
+            //console.assert(!isNaN(v), "prediction time is NaN", window.DEBUG);
+            //console.assert(v >= 0, "prediction time is negative", window.DEBUG);
 
             return v;
         }
@@ -716,7 +718,7 @@
          * @returns {void}
          */
         GenerateTrajectories(transitionFrames, positionCurve, directionCurve){
-            console.assert(positionCurve && isArray(positionCurve), "", window.DEBUG);
+            //console.assert(positionCurve && isArray(positionCurve), "", window.DEBUG);
             let pOrder = 5;
             let i, j, k;
             let x0 = mat4.getTranslation(vec3.create(), this._AnimationData[this._TransitionStart][0]);
@@ -801,7 +803,7 @@
             let i;
 
             //int grown = transitionFrames - (TransitionEnd - TransitionStart);
-            console.assert(this._AnimationStyle && isArray(this._AnimationStyle) && this._AnimationStyle.length > 0, "No styles defined", window.DEBUG);
+            //console.assert(this._AnimationStyle && isArray(this._AnimationStyle) && this._AnimationStyle.length > 0, "No styles defined", window.DEBUG);
             let pOrder = 3;
             let numStyles = this._AnimationStyle[0].length;
             //List < float[] > p = new List<float[]>();
@@ -856,7 +858,7 @@
                 min   = 0, 
                 max   = traj.Points.length - 1;
 
-            return traj.Points[Math.max(min,Math.min(max,v))];
+            return traj.Points[Math.max(min,Math.min(max,value))];
         }
 
         /**
@@ -889,7 +891,7 @@
          * @returns {void}
          */
         SetStyles(styles){
-            console.assert(isArray(styles), "value is not recognised as an array", window.DEBUG);
+            //console.assert(isArray(styles), "value is not recognised as an array", window.DEBUG);
 
             this._Styles = Array.from(styles);
         }
@@ -900,14 +902,14 @@
          * @returns {string}
          */
         GetBoneName(i){
-            console.assert(this._NNParameters && this._NNParameters.BoneNames && isArray(this._NNParameters.BoneNames), "value is not an array", window.DEBUG);
-            console.assert(i >= 0 && this._NNParameters.BoneNames.length > i, "provided index out of range", window.DEBUG);
+            //console.assert(this._NN.Parameters && this._NN.Parameters.BoneNames && isArray(this._NN.Parameters.BoneNames), "value is not an array", window.DEBUG);
+            //console.assert(i >= 0 && this._NN.Parameters.BoneNames.length > i, "provided index out of range", window.DEBUG);
 
             let v = null;
 
-            if (this._NNParameters && this._NNParameters.BoneNames ) {
-                if (i >= 0 && i < this._NNParameters.BoneNames.length)
-                    v = this._NNParameters.BoneNames[i];
+            if (this._NN.Parameters && this._NN.Parameters.BoneNames ) {
+                if (i >= 0 && i < this._NN.Parameters.BoneNames.length)
+                    v = this._NN.Parameters.BoneNames[i];
             }
             
             if (!v || v.length == 0)
@@ -921,8 +923,8 @@
          * @returns { string[] } 
          */
         GetBoneNames(){
-            if (this._NNParameters) {
-                return this._NNParameters.BoneNames;
+            if (this._NN.Parameters) {
+                return this._NN.Parameters.BoneNames;
             }
         }
 
@@ -932,8 +934,8 @@
          */
         GetNumberOfBones() {
             if (MANNController.CONSTRUCT_MANN) {
-                if (this._NNParameters != null)
-                    return this._NNParameters.BoneNames.length;
+                if (this._NN.Parameters != null)
+                    return this._NN.Parameters.BoneNames.length;
             }
             else {
                 if (this._NN)
@@ -954,8 +956,11 @@
             let gains = [3 / 2, -2, .5];
 
             let result = vec3.scale(vec3.create(), nextPos, gains[0]);// * currFPS;
-            for (let i = 0; i < gains.length - 1; ++i)
-                result += gains[i + 1] * traj.Points[this._InputPoint - i].GetPosition();// * LastFPS[i];
+            for (let i = 0; i < gains.length - 1; ++i){
+                let v = vec3.scale(vec3.create(), traj.Points[this._InputPoint - i].GetPosition(), gains[i + 1] );
+                vec3.add(result, result, v);
+            }
+            //result += // * LastFPS[i];
 
             return vec3.scale(vec3.create(), result, currFPS);
         }
@@ -1091,12 +1096,12 @@
          * @returns {vec3} 
          */
         GetPosition(boneIdx) {
-            console.assert(this._PoseTransforms && isArray(this._PoseTransforms), "value is not recognised as an array", window.DEBUG);
-            console.assert(boneIdx >= 0 && this._PoseTransforms.length > boneIdx, "provided index out of range", window.DEBUG);
+            //console.assert(this._PoseTransforms && isArray(this._PoseTransforms), "value is not recognised as an array", window.DEBUG);
+            //console.assert(boneIdx >= 0 && this._PoseTransforms.length > boneIdx, "provided index out of range", window.DEBUG);
 
             let v = mat4.getTranslation(vec3.create(), this._PoseTransforms[boneIdx]);
 
-            console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
             return v;
         }
 
@@ -1107,8 +1112,8 @@
          * @returns {void}
          */
         SetPosition(boneIdx, pos) {
-            console.assert(boneIdx >= 0 && boneIdx < this._PoseTransforms.length, "provided index out of range", window.DEBUG);
-            console.assert(pos && isArray(pos) && pos.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(boneIdx >= 0 && boneIdx < this._PoseTransforms.length, "provided index out of range", window.DEBUG);
+            //console.assert(pos && isArray(pos) && pos.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
 
             mat4.setTranslation(this._PoseTransforms[boneIdx], pos);
         }
@@ -1120,7 +1125,7 @@
          */
         GetVelocity(boneIdx) {
             let v = this._Velocities[boneIdx];
-            console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
 
             return v;
         }
@@ -1140,15 +1145,15 @@
          * @param {int} boneIdx 
          */
         GetOrientation(boneIdx) {
-            console.assert(this._PoseTransforms && isArray(this._PoseTransforms), "value is not recognised as an array", window.DEBUG);
-            console.assert(boneIdx >= 0 && this._PoseTransforms.length > boneIdx, "provided index out of range", window.DEBUG);
+            //console.assert(this._PoseTransforms && isArray(this._PoseTransforms), "value is not recognised as an array", window.DEBUG);
+            //console.assert(boneIdx >= 0 && this._PoseTransforms.length > boneIdx, "provided index out of range", window.DEBUG);
 
             let v = quat.fromMat3AndQuat(
                 quat.create(),
                 mat3.fromMat4(mat3.create(), this._PoseTransforms[boneIdx])
             );
 
-            console.assert(v && isArray(v) && v.length == 4, "'v' return value is not recognised as a 4 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 4, "'v' return value is not recognised as a 4 component float array", window.DEBUG);
             return v;
         }
 
@@ -1184,7 +1189,7 @@
          * @returns {void}
          */
         SetTargetPosition(target) {
-            console.assert(target && isArray(target) && target.length == 3, "'target' parameter is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(target && isArray(target) && target.length == 3, "'target' parameter is not recognised as a 3 component float array", window.DEBUG);
 
             //TargetTransform.SetPosition(target);
             vec3.copy(this._TargetPosition, target);
@@ -1196,7 +1201,7 @@
          */
         GetTargetVelocity() {
             let v = this._TargetVelocity;
-            console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
 
             return v;
         }
@@ -1210,7 +1215,7 @@
             // direction is always stored as forward (Z) axis
             //return TargetTransform.GetForward();
             let v = this._TargetDirection;
-            console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
 
             return v;
         }
@@ -1237,12 +1242,22 @@
         }
 
         /**
+         * @param {vec3} position 
+         * @param {quat} direction 
+         * @returns {void}
+         */
+        setTargetPositionAndDirection(position, direction){
+            this.SetTargetPosition(position);
+            this.SetTargetDirection(direction);
+        }
+
+        /**
          * 
          * @param {vec3} vel
          * @returns {void}
          */
         SetLocalVelocity(vel) {
-            console.assert(vel && isArray(vel) && vel.length == 3, "'target' parameter is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(vel && (isArray(vel) || target.constructor.name == "Float32Array") && vel.length == 3, "'target' parameter is not recognised as a 3 component float array", window.DEBUG);
 
             vec3.copy(this._TargetLocalVelocity, vel);
         }
@@ -1254,9 +1269,9 @@
          * @return {void}
          */
         SetEffectorTarget(effectorIndex, position) {
-            console.assert(this._Effectors && isArray(this._Effectors), "value is not recognised as an array", window.DEBUG);
-            console.assert(effectorIndex >= 0 && this._Effectors.length > effectorIndex, "provided index out of range", window.DEBUG);
-            console.assert(position && isArray(position) && position.length == 3, "'position' parameter is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(this._Effectors && isArray(this._Effectors), "value is not recognised as an array", window.DEBUG);
+            //console.assert(effectorIndex >= 0 && this._Effectors.length > effectorIndex, "provided index out of range", window.DEBUG);
+            //console.assert(position && isArray(position) && position.length == 3, "'position' parameter is not recognised as a 3 component float array", window.DEBUG);
 
             let boneIdx = this._Effectors[effectorIndex];
             vec3.copy(this._EffectorTargets[boneIdx], position);
@@ -1267,12 +1282,12 @@
          * @returns {Trajectory.Point}
          */
         GetCurrentPoint() {
-            console.assert(this._Trajectory && this._Trajectory.Points && isArray(this._Trajectory.Points), "value is not recognised as an array", window.DEBUG);
-            console.assert(this._InputPoint >= 0 && this._Trajectory.Points.length > this._InputPoint, "provided index out of range", window.DEBUG);
+            //console.assert(this._Trajectory && this._Trajectory.Points && isArray(this._Trajectory.Points), "value is not recognised as an array", window.DEBUG);
+            //console.assert(this._InputPoint >= 0 && this._Trajectory.Points.length > this._InputPoint, "provided index out of range", window.DEBUG);
 
             let v = this._Trajectory.Points[this._InputPoint];
 
-            console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
             return v;
         }
         
@@ -1298,7 +1313,7 @@
          */
         GetTrajectoryPosition() {
             let v = this._Trajectory.Points[this._InputPoint].getPosition();
-            console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
 
             return v;
         }
@@ -1309,8 +1324,8 @@
          * @returns {void}
          */
         SetTrajectoryPosition(pos) {
-            console.assert(this._Trajectory && this._Trajectory.Points && isArray(this._Trajectory.Points), "invalid array", window.DEBUG);
-            console.assert(this._InputPoint && this._InputPoint > 0 && this._InputPoint < this._Trajectory.Points.length, "index out of range", window.DEBUG);
+            //console.assert(this._Trajectory && this._Trajectory.Points && isArray(this._Trajectory.Points), "invalid array", window.DEBUG);
+            //console.assert(this._InputPoint && this._InputPoint > 0 && this._InputPoint < this._Trajectory.Points.length, "index out of range", window.DEBUG);
 
             // assuming flat trajectory
             this._Trajectory.Points[this._InputPoint].setPosition(pos[0], 0, pos[2]);
@@ -1323,7 +1338,7 @@
         GetTrajectoryOrientation() {
             // with flat trajectories it can only be a 2D rotation even if mapped back to bone axes
             let v = this._Trajectory.Points[this._InputPoint].getRotation();
-            console.assert(v && isArray(v) && v.length == 4, "'v' return value is not recognised as a 4 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 4, "'v' return value is not recognised as a 4 component float array", window.DEBUG);
 
             return v;
         }
@@ -1334,8 +1349,8 @@
          * @returns {void}
          */
         SetTrajectoryOrientation(rotation) {
-            console.assert(this._Trajectory && this._Trajectory.Points && isArray(this._Trajectory.Points), "invalid array", window.DEBUG);
-            console.assert(this._InputPoint && this._InputPoint > 0 && this._InputPoint < this._Trajectory.Points.length, "index out of range", window.DEBUG);
+            //console.assert(this._Trajectory && this._Trajectory.Points && isArray(this._Trajectory.Points), "invalid array", window.DEBUG);
+            //console.assert(this._InputPoint && this._InputPoint > 0 && this._InputPoint < this._Trajectory.Points.length, "index out of range", window.DEBUG);
 
             //assuming flat trajectory
             //TODO: dont know if this is right
@@ -1349,7 +1364,7 @@
          */
         GetTrajectoryDirection() {
             let v = this._Trajectory.Points[this._InputPoint].getFront();
-            console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
+            //console.assert(v && isArray(v) && v.length == 3, "'v' return value is not recognised as a 3 component float array", window.DEBUG);
 
             return v;
         }
@@ -1387,6 +1402,15 @@
         SetTargetVelocity(velocity)
         {
             this._TargetVelocity = velocity;
+        }
+
+        
+        SetSkeletonTransforms(transforms, root_name){
+
+        }
+
+        SetCurrentPoseAsInitial(){
+            
         }
        
     }

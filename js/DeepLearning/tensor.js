@@ -19,9 +19,9 @@
 
     class Tensor
     {
-        constructor(rows, cols)
+        constructor(id, rows, cols)
         {
-            this.id = "undefined!"; 
+            //this.id = "undefined!"; 
             this._Deleted = false;
             
             //this.id = Eigen.Create(rows, cols);
@@ -30,7 +30,7 @@
             for(let y = 0; y < rows; ++y)
             matrix.push( new Float32Array(cols) );
             
-            this.id = ++Tensor.id;
+            this.id = id;
             Tensor.matrices[this.id] = matrix;
         }
         
@@ -61,6 +61,23 @@
             let m = Tensor.matrices[this.id];
             console.assert(m, "matrix not found", window.DEBUG);
             return m.length? m[0].length : 0;
+        }
+
+        GetMatrix(){
+            let m = Tensor.matrices[this.id];
+            return m;
+        }
+
+        Fit(T){
+            let rows = T.GetRows();
+            let cols = T.GetCols();
+
+            let matrix = [];
+            for(let y = 0; y < rows; ++y)
+            matrix.push( new Float32Array(cols) );
+            Tensor.matrices[this.id] = matrix
+
+            this.SetZero();
         }
         
         SetZero() 
@@ -277,6 +294,7 @@
         }
     }
     Tensor.matrices = {};
+    Tensor.id = -1;
 
     window.Tensor = Tensor;
 

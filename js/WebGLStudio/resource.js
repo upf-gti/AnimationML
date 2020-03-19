@@ -12,6 +12,7 @@
         MANN.prototype.fromData = function(json_string) {
             let data;
             try {
+                data = JSON.parse(json_string);
                 this.ReadParameters(data);
             }
             catch (e) {
@@ -32,7 +33,7 @@
             return data;
         };
 
-        MANN.FORMAT = { extension: "json", dataType: "text" };
+        MANN.FORMAT = { extension: "nn", dataType: "text" };
 
 
         LS.registerResourceClass(MANN);

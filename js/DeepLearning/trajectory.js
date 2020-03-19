@@ -30,14 +30,18 @@
          */
         constructor(size, styles, seedPosition, seedDirection) {
             this.Inspect = false;
-            this.Points = new Point[size];
+            this.Points = new Array(size);
 
             let mat = mat4.create();
 
             if (seedPosition && seedDirection) {
-                if (isArray(seedPosition) && seedPosition.length > 0 && isArray(seedPosition[0])) {
-                    for (let i = 0; i < Points.length; ++i) {
-                        mat4.fromRotationTranslation(mat, quat.lookRotation(quat.create(), seedDirection[i], vec3.UP), seedPosition[i]);
+                if (isArray(seedPosition) && seedPosition.length > 0) {
+                    for (let i = 0; i < this.Points.length; ++i) {
+                        mat4.fromRotationTranslation(
+                            mat, 
+                            quat.lookRotation(quat.create(), seedDirection[i], vec3.UP), 
+                            seedPosition[i]
+                        );
                         this.Points[i] = new Point(i, styles);
                         this.Points[i].SetTransformation(mat);
                     }
@@ -48,7 +52,7 @@
                 mat = mat4.fromRotationTranslation(mat4.create(), rot, seedPosition);
             }
 
-            for (let i = 0; i < Points.length; ++i) {
+            for (let i = 0; i < this.Points.length; ++i) {
                 this.Points[i] = new Point(i, styles);
                 this.Points[i].SetTransformation(mat);
             }
@@ -139,10 +143,10 @@
         constructor(index, styles) {
             this._Index = index;
             this._Transformation = mat4.create();
-            this._Velocity = vec3.clone(vec3.zero);
-            this._Speed = vec3.clone(vec3.zero);
-            this._LeftSample = vec3.clone(vec3.zero);
-            this._RightSample = vec3.clone(vec3.zero);
+            this._Velocity = vec3.clone(vec3.ZERO);
+            this._Speed = 0;
+            this._LeftSample = vec3.clone(vec3.ZERO);
+            this._RightSample = vec3.clone(vec3.ZERO);
             this._Slope = 0;
             this.Styles = new Float32Array(styles);
         }
@@ -235,8 +239,8 @@
          */
         SetRotation(v) {
             //Matrix4x4Extensions.SetRotation(this._Transformation, v);
-            if (!isArray(v) || v.length != 4)
-                throw ("rotation expected to be quaternion");
+            //if (!isArray(v) || v.length != 4)
+            //    throw ("rotation expected to be quaternion");
 
             mat4.fromRotationTranslation(this._Transformation, v, this.GetPosition());
         }
@@ -404,7 +408,7 @@
              UltiDraw.End();*/
         }
     }
-
+    window.Point = Trajectory.Point;
     window.Trajectory = Trajectory;
 
 })();

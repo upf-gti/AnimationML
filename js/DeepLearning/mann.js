@@ -217,8 +217,8 @@
                 this._WXP[tid] = this.CreateTensor("WXPi" + tid++, params.WXP2b.Values[i]);
             }
 
-            this._X = this.CreateTensor(params.InputSize, 1, "X");
-            this._Y = this.CreateTensor(params.OutputSize,1, "Y");
+            this._X = this.CreateTensor("X", params.InputSize, 1 );
+            this._Y = this.CreateTensor("Y", params.OutputSize,1 );
 
             this._GX    = this.CreateTensor("GX",    params.InputGating.length,    1 );
             this._GY    = this.CreateTensor("GY",    params.NumExperts,            1 );
